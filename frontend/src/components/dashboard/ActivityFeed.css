@@ -1,0 +1,384 @@
+/* src/components/dashboard/ActivityFeed.css */
+.activity-feed {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 32px;
+  }
+  
+  .feed-header {
+    margin-bottom: 24px;
+  }
+  
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .header-title h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+  
+  .unread-badge {
+    background: #ef4444;
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    animation: pulse 2s infinite;
+  }
+  
+  .feed-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    background: #f8fafc;
+    padding: 4px;
+    border-radius: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .filter-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+  
+  .filter-tab:hover {
+    background: #e2e8f0;
+    color: #374151;
+  }
+  
+  .filter-tab.active {
+    background: #3b82f6;
+    color: #ffffff;
+  }
+  
+  .count-badge {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+  }
+  
+  .filter-tab.active .count-badge {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Feed Content */
+  .feed-content {
+    min-height: 300px;
+  }
+  
+  .empty-feed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: #6b7280;
+    text-align: center;
+  }
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  .empty-feed p {
+    font-size: 16px;
+    margin: 0;
+  }
+  
+  /* Notifications List */
+  .notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  
+  .notification-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease-in-out;
+    position: relative;
+  }
+  
+  .notification-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+  
+  .notification-item.unread {
+    background: #fef7ff;
+    border-color: #e879f9;
+  }
+  
+  .notification-item.unread:hover {
+    background: #fdf2f8;
+  }
+  
+  .notification-content {
+    width: 100%;
+  }
+  
+  .notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .notification-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .notification-icon {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+  }
+  
+  .severity-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  .notification-source {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .notification-timestamp {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-left: auto;
+  }
+  
+  .unread-indicator {
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  
+  .notification-body {
+    padding-left: 32px;
+  }
+  
+  .notification-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+  }
+  
+  .notification-message {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+  }
+  
+  /* Feed Footer */
+  .feed-footer {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+  }
+  
+  .expand-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0 auto;
+  }
+  
+  .expand-button:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #374151;
+  }
+  
+  .expand-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  /* Animations */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(0.95);
+    }
+  }
+  
+  /* Entry Animation */
+  .notification-item {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .activity-feed {
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .feed-header {
+      margin-bottom: 20px;
+    }
+    
+    .header-title {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .feed-controls {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    
+    .filter-tabs {
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    
+    .filter-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .filter-tab {
+      flex-shrink: 0;
+    }
+    
+    .notification-item {
+      padding: 12px;
+    }
+    
+    .notification-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    
+    .notification-meta {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .notification-body {
+      padding-left: 0;
+      margin-top: 8px;
+    }
+    
+    .notification-title {
+      font-size: 14px;
+    }
+    
+    .notification-message {
+      font-size: 13px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .header-title h2 {
+      font-size: 20px;
+    }
+    
+    .filter-tabs {
+      flex-wrap: nowrap;
+      padding: 2px;
+    }
+    
+    .filter-tab {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    .notification-meta {
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    
+    .notification-source {
+      order: -1;
+      margin-right: auto;
+    }
+    
+    .notification-timestamp {
+      margin-left: 0;
+    }
+  }

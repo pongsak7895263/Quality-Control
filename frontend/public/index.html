@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <!-- SEO Meta Tags -->
+  <title>ระบบตรวจสอบคุณภาพ | Quality Control System</title>
+  <meta name="description" content="ระบบการตรวจสอบคุณภาพในสายการผลิต สำหรับการจัดการการตรวจรับวัตถุดิบ การทดสอบทางเคมี และการควบคุมคุณภาพตามมาตรฐาน JIS">
+  <meta name="keywords" content="ระบบตรวจสอบคุณภาพ, การควบคุมคุณภาพ, การทดสอบทางเคมี, มาตรฐาน JIS, การตรวจรับวัตถุดิบ">
+  <meta name="author" content="Qualitdsfdsfdsy Control System">
+  <meta name="robots" content="noindex, nofollow">
+  
+  <!-- Open Graph Meta Tags -->
+  <meta property="og:title" content="ระบบตรวจสอบคุณภาพในสายการผลิต">
+  <meta property="og:description" content="ระบบการตรวจสอบคุณภาพสำหรับการจัดการการตรวจรับวัตถุดิบและการทดสอบทางเคมี">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://quality-control-system.com">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="QC System">
+  
+  <!-- Preconnect for Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Google Fonts - Sarabun (Thai Font) -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  
+  <!-- Additional Fonts for English -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Framework CDN (เพื่อป้องกันกรณี local CSS ไม่โหลด) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" integrity="sha512-NhSC1YmyruXifcj/KFRWoC561YpHpc5Jtzgvbuzx5VozKpWvQ+4nXhPdFgmx8xqexRcpAglTj9sIBWINXa8x5w==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  
+  <!-- Inline Critical CSS -->
+  <style>
+    /* Critical CSS for faster loading */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Sarabun', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Loading Screen */
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      color: white;
+      font-weight: 500;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 2rem;
+    }
+
+    .loading-text {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .loading-subtext {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .loading-screen.fade-out {
+      animation: fadeOut 0.5s ease-out forwards;
+    }
+
+    /* No Script Fallback */
+    .no-script-message {
+      padding: 2rem;
+      text-align: center;
+      background: #fff;
+      border: 2px solid #dc3545;
+      border-radius: 8px;
+      margin: 2rem;
+      color: #721c24;
+    }
+
+    .no-script-message h1 {
+      color: #dc3545;
+      margin-bottom: 1rem;
+    }
+
+    /* Error Boundary Styles */
+    .error-boundary {
+      padding: 2rem;
+      text-align: center;
+      background: #fff;
+      border-radius: 8px;
+      margin: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .error-boundary h1 {
+      color: #dc3545;
+      margin-bottom: 1rem;
+    }
+
+    .error-boundary p {
+      color: #6c757d;
+      margin-bottom: 1rem;
+    }
+
+    .error-boundary button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .error-boundary button:hover {
+      background: #0056b3;
+    }
+
+    /* Accessibility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Skip Navigation Link */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 6px;
+      background: #000;
+      color: white;
+      padding: 8px;
+      text-decoration: none;
+      border-radius: 4px;
+      z-index: 10000;
+    }
+
+    .skip-link:focus {
+      top: 6px;
+    }
+
+    /* Print Styles */
+    @media print {
+      .loading-screen {
+        display: none !important;
+      }
+      
+      body {
+        background: white !important;
+      }
+    }
+
+    /* High Contrast Mode */
+    @media (prefers-contrast: high) {
+      body {
+        background: white;
+        color: black;
+      }
+      
+      .loading-screen {
+        background: black;
+        color: white;
+      }
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      .loading-spinner {
+        animation: none;
+      }
+      
+      .loading-screen.fade-out {
+        animation: none;
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Skip Navigation for Accessibility -->
+  <a href="#main-content" class="skip-link">ข้ามไปยังเนื้อหาหลัก</a>
+
+  <!-- No Script Message -->
+  <noscript>
+    <div class="no-script-message">
+      <h1>⚠️ JavaScript จำเป็นสำหรับระบบนี้</h1>
+      <p>กรุณาเปิดใช้งาน JavaScript ในเบราว์เซอร์ของคุณเพื่อใช้งานระบบตรวจสอบคุณภาพ</p>
+      <p>
+        <strong>วิธีการเปิดใช้งาน JavaScript:</strong><br>
+        <strong>Chrome:</strong> Settings → Advanced → Content settings → JavaScript<br>
+        <strong>Firefox:</strong> about:config → javascript.enabled → true<br>
+        <strong>Safari:</strong> Preferences → Security → Enable JavaScript
+      </p>
+    </div>
+  </noscript>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <div class="loading-text">กำลังโหลดระบบตรวจสอบคุณภาพ</div>
+    <div class="loading-subtext">กรุณารอสักครู่...</div>
+    
+    <!-- Screen Reader Announcement -->
+    <div class="sr-only" aria-live="polite" id="loading-announcement">
+      ระบบกำลังโหลด กรุณารอสักครู่
+    </div>
+  </div>
+
+  <!-- Main Application Container -->
+  <div id="root" role="main" aria-label="ระบบตรวจสอบคุณภาพในสายการผลิต">
+    <!-- React App will mount here -->
+    
+    <!-- Fallback content for when React doesn't load -->
+    <div id="fallback-content" style="display: none;">
+      <div class="error-boundary">
+        <h1>🔧 ไม่สามารถโหลดระบบได้</h1>
+        <p>เกิดข้อผิดพลาดในการโหลดระบบตรวจสอบคุณภาพ</p>
+        <p>กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตและลองใหม่อีกครั้ง</p>
+        <button onclick="window.location.reload()">โหลดใหม่</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Worker Registration -->
+  <script>
+    // Register Service Worker for PWA capabilities
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js')
+          .then(function(registration) {
+            console.log('ServiceWorker registration successful');
+          })
+          .catch(function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
+
+    // Loading Screen Management
+    document.addEventListener('DOMContentLoaded', function() {
+      const loadingScreen = document.getElementById('loading-screen');
+      const loadingAnnouncement = document.getElementById('loading-announcement');
+      
+      // Hide loading screen after React app loads
+      function hideLoadingScreen() {
+        if (loadingScreen) {
+          loadingScreen.classList.add('fade-out');
+          loadingAnnouncement.textContent = 'ระบบโหลดเสร็จสิ้น';
+          
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }
+
+      // Show fallback content if React doesn't load within 10 seconds
+      const fallbackTimer = setTimeout(() => {
+        const fallbackContent = document.getElementById('fallback-content');
+        if (fallbackContent && !window.React) {
+          hideLoadingScreen();
+          fallbackContent.style.display = 'block';
+        }
+      }, 10000);
+
+      // Clear fallback timer when React loads
+      window.addEventListener('react-loaded', () => {
+        clearTimeout(fallbackTimer);
+        hideLoadingScreen();
+      });
+
+      // Fallback: Hide loading screen after 5 seconds regardless
+      setTimeout(() => {
+        if (loadingScreen && loadingScreen.style.display !== 'none') {
+          hideLoadingScreen();
+        }
+      }, 5000);
+    });
+
+    // Error Handling
+    window.addEventListener('error', function(event) {
+      console.error('Global error:', event.error);
+      
+      // Log error for debugging
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'exception', {
+          'description': event.error.toString(),
+          'fatal': false
+        });
+      }
+    });
+
+    // Unhandled Promise Rejection
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('Unhandled promise rejection:', event.reason);
+    });
+
+    // Performance Monitoring
+    window.addEventListener('load', function() {
+      // Report performance metrics
+      if ('performance' in window && 'getEntriesByType' in performance) {
+        setTimeout(() => {
+          const perfData = performance.getEntriesByType('navigation')[0];
+          if (perfData) {
+            console.log('Page Load Time:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
+          }
+        }, 0);
+      }
+    });
+
+    // Theme Detection
+    function detectTheme() {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    }
+
+    // Listen for theme changes
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', detectTheme);
+    }
+
+    detectTheme();
+
+    // Accessibility Enhancements
+    document.addEventListener('keydown', function(event) {
+      // ESC key to close modals
+      if (event.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal-overlay');
+        modals.forEach(modal => {
+          if (modal.style.display !== 'none') {
+            const closeBtn = modal.querySelector('.modal-close-btn');
+            if (closeBtn) closeBtn.click();
+          }
+        });
+      }
+    });
+
+    // Focus Management
+    let lastFocusedElement = null;
+    
+    document.addEventListener('focusin', function(event) {
+      lastFocusedElement = event.target;
+    });
+
+    // Restore focus when modals close
+    window.restoreFocus = function() {
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+      }
+    };
+
+    // Add focus outline for keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Tab') {
+        document.body.classList.add('keyboard-navigation');
+      }
+    });
+
+    document.addEventListener('mousedown', function() {
+      document.body.classList.remove('keyboard-navigation');
+    });
+  </script>
+
+  <!-- Environment Variables (for development) -->
+  <script>
+    // Set environment variables
+    window.ENV = {
+      NODE_ENV: 'development',
+      API_URL: 'http://localhost:3001/api',
+      VERSION: '1.0.0',
+      BUILD_TIME: new Date().toISOString()
+    };
+  </script>
+
+  <!-- React and ReactDOM (CDN fallback) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Your bundled JavaScript will be injected here by build tools -->
+  <!-- <script src="/static/js/bundle.js"></script> -->
+</body>
+</html>

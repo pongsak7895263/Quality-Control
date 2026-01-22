@@ -1,0 +1,330 @@
+/* src/components/dashboard/ChartsSection.css */
+.charts-section {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 32px;
+  }
+  
+  .charts-header {
+    margin-bottom: 24px;
+  }
+  
+  .charts-header h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 16px 0;
+  }
+  
+  .chart-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .chart-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+  }
+  
+  .chart-tab:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+  
+  .chart-tab.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #ffffff;
+  }
+  
+  .tab-icon {
+    font-size: 16px;
+  }
+  
+  .tab-label {
+    font-weight: 500;
+  }
+  
+  .charts-content {
+    min-height: 400px;
+  }
+  
+  /* Mock Chart Styles */
+  .mock-chart {
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .chart-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+  
+  /* Line Chart */
+  .chart-line {
+    position: relative;
+    width: 90%;
+    height: 200px;
+    background: linear-gradient(to bottom, transparent 0%, rgba(59, 130, 246, 0.1) 100%);
+  }
+  
+  .chart-point {
+    position: absolute;
+    width: 4px;
+    background: #3b82f6;
+    border-radius: 2px;
+    bottom: 0;
+    animation: chartPointGrow 1s ease-out;
+  }
+  
+  .chart-point::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+  }
+  
+  /* Bar Chart */
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 200px;
+    width: 90%;
+  }
+  
+  .chart-bar {
+    flex: 1;
+    background: linear-gradient(to top, #3b82f6, #60a5fa);
+    border-radius: 4px 4px 0 0;
+    min-height: 20px;
+    animation: chartBarGrow 1s ease-out;
+  }
+  
+  /* Pie Chart */
+  .chart-pie {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: conic-gradient(
+      #3b82f6 0deg 162deg,
+      #10b981 162deg 270deg,
+      #f59e0b 270deg 360deg
+    );
+    position: relative;
+    animation: chartPieRotate 1.5s ease-out;
+  }
+  
+  .chart-pie::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    background: #f8fafc;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  /* Efficiency Meters */
+  .efficiency-meters {
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .efficiency-meter {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .meter-label {
+    width: 60px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+  }
+  
+  .meter-bar {
+    flex: 1;
+    height: 24px;
+    background: #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(to right, #10b981, #34d399);
+    border-radius: 12px;
+    animation: meterFill 1.5s ease-out;
+  }
+  
+  .meter-value {
+    width: 60px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  /* Legend */
+  .chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+  
+  .legend-color.quality { background: #3b82f6; }
+  .legend-color.production { background: #10b981; }
+  .legend-color.defect-1 { background: #3b82f6; }
+  .legend-color.defect-2 { background: #10b981; }
+  .legend-color.defect-3 { background: #f59e0b; }
+  
+  /* Loading States */
+  .chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+  }
+  
+  .chart-skeleton {
+    width: 90%;
+    height: 300px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: skeleton-loading 1.5s infinite;
+  }
+  
+  .chart-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    color: #6b7280;
+  }
+  
+  /* Animations */
+  @keyframes chartPointGrow {
+    from { height: 0; }
+    to { height: var(--height, 50%); }
+  }
+  
+  @keyframes chartBarGrow {
+    from { height: 0; }
+    to { height: 100%; }
+  }
+  
+  @keyframes chartPieRotate {
+    from { transform: rotate(-90deg); }
+    to { transform: rotate(0deg); }
+  }
+  
+  @keyframes meterFill {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  
+  @keyframes skeleton-loading {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .charts-section {
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .chart-tabs {
+      justify-content: flex-start;
+      overflow-x: auto;
+      gap: 4px;
+    }
+    
+    .chart-tab {
+      padding: 6px 12px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    
+    .mock-chart {
+      height: 350px;
+    }
+    
+    .chart-legend {
+      gap: 12px;
+    }
+    
+    .efficiency-meter {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    
+    .meter-label {
+      width: auto;
+      text-align: center;
+    }
+    
+    .meter-value {
+      width: auto;
+      text-align: center;
+    }
+  }

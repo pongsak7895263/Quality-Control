@@ -1,0 +1,127 @@
+/* src/components/common/ConnectionManager.css */
+.connection-manager {
+    position: relative;
+    min-height: 100vh;
+  }
+  
+  .connection-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  @keyframes slideDown {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  
+  .warning-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 12px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .warning-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  
+  .warning-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    text-align: center;
+  }
+  
+  .warning-text strong {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .warning-text span {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  
+  .retry-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  
+  .retry-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  
+  .app-content {
+    transition: padding-top 0.3s ease;
+  }
+  
+  .app-content.with-warning {
+    padding-top: 60px;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .warning-content {
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 20px;
+      text-align: center;
+    }
+  
+    .warning-text {
+      order: 2;
+    }
+  
+    .retry-button {
+      order: 3;
+      width: 100%;
+      max-width: 200px;
+    }
+  
+    .app-content.with-warning {
+      padding-top: 90px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .warning-content {
+      padding: 12px 16px;
+    }
+  
+    .warning-text strong {
+      font-size: 15px;
+    }
+  
+    .warning-text span {
+      font-size: 13px;
+    }
+  
+    .app-content.with-warning {
+      padding-top: 100px;
+    }
+  }

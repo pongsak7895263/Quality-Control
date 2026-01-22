@@ -1,0 +1,11 @@
+# ไฟล์ Dependencies (ขนาดใหญ่มาก ห้ามเอาขึ้น)
+node_modules/
+*/node_modules/
+
+# ไฟล์ Environment (มีรหัสผ่าน DB ห้ามเอาขึ้นเด็ดขาด!)
+.env
+.DS_Store
+
+# ไฟล์ Build ของ Frontend (เราจะ Build ใหม่ที่ Server เสมอ)
+frontend/build/
+frontend/dist/

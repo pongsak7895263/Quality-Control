@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Inspection Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; font-size: 14px; color: #333; padding: 40px; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
+        .header h1 { margin: 0; color: #2563eb; font-size: 24px; }
+        .header p { margin: 5px 0 0; color: #666; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .info-item strong { display: block; font-size: 12px; color: #64748b; }
+        .info-item span { font-size: 16px; font-weight: 600; }
+
+        .table-container { width: 100%; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #2563eb; color: white; padding: 10px; text-align: left; }
+        td { border-bottom: 1px solid #ddd; padding: 10px; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        .footer { margin-top: 50px; display: flex; justify-content: space-between; text-align: center; }
+        .signature-line { width: 200px; border-top: 1px solid #333; margin-top: 50px; margin-left: auto; margin-right: auto; }
+        
+        .status-badge { 
+            display: inline-block; padding: 4px 12px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold;
+        }
+        .pass { background-color: #10b981; }
+        .fail { background-color: #ef4444; }
+        .pending { background-color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ใบรายงานผลการตรวจสอบวัตถุดิบ</h1>
+        <p>Material Inspection Report</p>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-item"><strong>Inspection No:</strong> <span><%= data.inspectionNumber %></span></div>
+        <div class="info-item"><strong>Batch No:</strong> <span><%= data.batchNumber %></span></div>
+        <div class="info-item"><strong>Material:</strong> <span><%= data.materialType %> (<%= data.materialGrade %>)</span></div>
+        <div class="info-item"><strong>Supplier:</strong> <span><%= data.supplierName %></span></div>
+        <div class="info-item"><strong>Maker:</strong> <span><%= data.makerMat %></span></div>
+        <div class="info-item"><strong>Receipt Date:</strong> <span><%= data.receiptDateFormatted %></span></div>
+        <div class="info-item"><strong>Inspector:</strong> <span><%= data.inspector %></span></div>
+        <div class="info-item">
+            <strong>Result:</strong> 
+            <span class="status-badge <%= data.overallResult %>"><%= data.overallResult.toUpperCase() %></span>
+        </div>
+    </div>
+
+    <h3>ผลการตรวจวัด (Measurement Details)</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <% if (data.materialType === 'bar') { %>
+                        <th>OD (mm)</th>
+                        <th>Length (mm)</th>
+                    <% } else { %>
+                        <th>Diameter (mm)</th>
+                        <th>Length (mm)</th>
+                        <th>Weight (kg)</th>
+                    <% } %>
+                    <th>Surface</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% data.items.forEach((item, index) => { %>
+                <tr>
+                    <td><%= index + 1 %></td>
+                    <% if (data.materialType === 'bar') { %>
+                        <td><%= item.odMeasurement %></td>
+                        <td><%= item.lengthMeasurement %></td>
+                    <% } else { %>
+                        <td><%= item.diameter %></td>
+                        <td><%= item.length %></td>
+                        <td><%= item.weight %></td>
+                    <% } %>
+                    <td><%= item.surfaceCondition %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <div style="width: 45%;">
+            <p>ผู้ตรวจสอบ (Inspector)</p>
+            <div class="signature-line"></div>
+            <p>( <%= data.inspector %> )</p>
+        </div>
+        <div style="width: 45%;">
+            <p>ผู้อนุมัติ (Approved By)</p>
+            <div class="signature-line"></div>
+            <p>( __________________________ )</p>
+        </div>
+    </div>
+</body>
+</html>

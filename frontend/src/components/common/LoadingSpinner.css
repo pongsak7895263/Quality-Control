@@ -1,0 +1,42 @@
+/* src/components/common/LoadingSpinner.css */
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* ทำให้ container เต็มความสูงของหน้าจอ */
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: rgba(255, 255, 255, 0.8); /* พื้นหลังโปร่งแสงเล็กน้อย */
+    z-index: 9999; /* ให้แสดงอยู่ชั้นบนสุด */
+  }
+  
+  /* ตัว Spinner ที่เป็นวงกลม */
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3; /* สีเทาอ่อนสำหรับพื้นหลังของวงกลม */
+    border-top: 5px solid #3498db; /* สีฟ้าสำหรับส่วนที่จะหมุน */
+    border-radius: 50%;
+    animation: spin 1s linear infinite; /* เรียกใช้อนิเมชันชื่อ spin */
+    margin-bottom: 20px;
+  }
+  
+  .loading-container p {
+    font-size: 1.2rem;
+    color: #333;
+  }
+  
+  
+  /* Keyframes สำหรับอนิเมชันการหมุน */
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }

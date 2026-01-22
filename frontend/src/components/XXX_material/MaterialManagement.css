@@ -1,0 +1,236 @@
+/* src/components/materials/MaterialManagement.css */
+
+.material-management {
+    padding: 0;
+  }
+  
+  .material-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+  }
+  
+  .material-header h2 {
+    color: #111827;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .material-header h2::before {
+    content: '📦';
+    font-size: 1.2rem;
+  }
+  
+  /* src/components/materials/MaterialTable.css */
+  
+  .material-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+  }
+  
+  .table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .material-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  
+  .material-table th {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    color: #374151;
+    font-weight: 600;
+    padding: 1rem 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .material-table td {
+    padding: 0.875rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  
+  .material-table tbody tr {
+    transition: background-color 0.2s ease;
+  }
+  
+  .material-table tbody tr:hover {
+    background-color: #f8fafc;
+  }
+  
+  .material-table tbody tr:nth-child(even) {
+    background-color: #fafbfc;
+  }
+  
+  .material-table tbody tr:nth-child(even):hover {
+    background-color: #f8fafc;
+  }
+  
+  .table-summary {
+    display: flex;
+    justify-content: space-around;
+    padding: 1rem;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+    gap: 1rem;
+  }
+  
+  .summary-item {
+    text-align: center;
+    min-width: 80px;
+  }
+  
+  .summary-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+  }
+  
+  .summary-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+  }
+  
+  .summary-value.pending {
+    color: #d97706;
+  }
+  
+  .summary-value.approved {
+    color: #059669;
+  }
+  
+  .summary-value.rejected {
+    color: #dc2626;
+  }
+  
+  /* Reject Modal */
+  .reject-modal {
+    max-width: 500px;
+  }
+  
+  .reject-modal .modal-body p {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #fef7f0;
+    border: 1px solid #fed7aa;
+    border-radius: 6px;
+    color: #9a3412;
+  }
+  
+  .reject-modal .modal-footer {
+    padding: 1rem 2rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+  }
+  
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .material-header {
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+    }
+    
+    .material-table {
+      font-size: 0.8rem;
+    }
+    
+    .material-table th,
+    .material-table td {
+      padding: 0.5rem;
+    }
+    
+    .table-summary {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    .summary-item {
+      min-width: 60px;
+    }
+    
+    .summary-value {
+      font-size: 1.1rem;
+    }
+  }
+  
+  /* src/components/materials/MaterialModal.css */
+  
+  .material-form {
+    max-height: none;
+  }
+  
+  .material-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .material-form .measurement-table {
+    margin: 1rem 0 1.5rem 0;
+  }
+  
+  .material-form .measurement-table h4 {
+    color: #374151;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .material-form .result-display {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #10b981;
+    color: #047857;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-radius: 6px;
+    text-align: center;
+    margin-top: 0.75rem;
+  }
+  
+  .material-form .result-display.result-fail {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-color: #ef4444;
+    color: #dc2626;
+  }
+  
+  @media (max-width: 768px) {
+    .material-form .form-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .material-form .measurement-table {
+      overflow-x: auto;
+    }
+    
+    .material-form .measurement-table table {
+      min-width: 500px;
+    }
+  }

@@ -1,0 +1,216 @@
+:root {
+  /* --- ตั้งค่าขนาด --- */
+  --sidebar-width: 480px;
+  /* ขยายความกว้าง Sidebar อีกนิดเพื่อให้ตัวหนังสือไม่ตกบรรทัด */
+  --sidebar-collapsed-width: 90px;
+
+  /* --- ตั้งค่าสี (Theme: Blue & White) --- */
+  --bg-color: #ffffff;
+  /* พื้นหลังสีขาว */
+  --bg-hover: #e3f2fd;
+  /* สีฟ้าอ่อนมากๆ เวลาเอาเมาส์ชี้ */
+
+  --text-primary: #003366;
+  /* ตัวหนังสือสีน้ำเงินเข้ม (Navy Blue) */
+  --text-secondary: #4776a3;
+  /* ตัวหนังสือสีฟ้าหม่น สำหรับหัวข้อกลุ่ม */
+
+  --active-bg: #bbdefb;
+  /* สีพื้นหลังตอนเลือกเมนู (Blue 100) */
+  --active-text: #0d47a1;
+  /* สีตัวหนังสือตอนเลือก (Blue 900) */
+  --active-line: #490dee;
+  /* เส้นขอบสีน้ำเงินสด */
+
+  --shadow-color: rgba(0, 51, 102, 0.15);
+  /* เงาสีน้ำเงินจางๆ */
+  --transition-speed: 0.3s;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  height: 95vh;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-speed) ease;
+  overflow-x: hidden;
+  position: sticky;
+  top: 0;
+  left: 0;
+  box-shadow: 4px 0 15px var(--shadow-color);
+  /* เพิ่มเงาให้ดูลอยขึ้น */
+  border-right: 1px solid #e0e0e0;
+  font-family: 'Sarabun', sans-serif;
+  /* แนะนำให้ใช้ฟอนต์อ่านง่ายๆ ถ้ามี */
+}
+
+/* --- Collapsed State --- */
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .group-title,
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .group-divider {
+  display: none;
+}
+
+.sidebar.collapsed .logo-container {
+  justify-content: center;
+}
+
+/* --- Header --- */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  height: 80px;
+  /* เพิ่มความสูง Header */
+  background-color: #f8fbff;
+  /* พื้นหลัง Header สีฟ้าจางๆ ต่างจากเมนู */
+  border-bottom: 2px solid #e3f2fd;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.logo-icon {
+  background: var(--text-primary);
+  color: white;
+  padding: 8px 15px;
+  /* icon ใหญ่ขึ้น */
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 18px;
+  /* icon ใหญ่ขึ้น */
+}
+
+.logo-text {
+  font-size: 16px;
+  /* ชื่อระบบใหญ่ขึ้น */
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.5rem;
+  /* ปุ่ม Toggle ใหญ่ขึ้น */
+  padding: 5px;
+}
+
+.toggle-btn:hover {
+  color: var(--active-line);
+}
+
+/* --- Navigation --- */
+.nav-menu {
+  flex: 1;
+  padding: 15px 0;
+  overflow-y: auto;
+}
+
+.menu-group {
+  margin-bottom: 15px;
+}
+
+.group-title {
+  font-size: 0.9rem;
+  /* หัวข้อกลุ่มใหญ่ขึ้น (เดิม 0.75) */
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 10px 24px 5px;
+  font-weight: 700;
+}
+
+.group-divider {
+  border: 0;
+  border-top: 1px solid #e0e0e0;
+  margin: 10px 20px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 24px;
+  /* เพิ่มพื้นที่คลิก */
+  color: var(--text-primary);
+  /* สีน้ำเงินเข้ม */
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  border-left: 5px solid transparent;
+  /* เส้นขอบหนาขึ้น */
+}
+
+.nav-text {
+  font-size: 16px;
+  /* *** ตัวหนังสือเมนูใหญ่ขึ้นที่นี่ (เดิมประมาณ 16px) *** */
+  font-weight: 600;
+}
+
+.nav-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--active-line);
+  /* สีฟ้าสดตอน Hover */
+}
+
+.nav-item.active {
+  background-color: var(--active-bg);
+  color: var(--active-text);
+  /* สีน้ำเงินเข้มข้นตอน Active */
+  border-left: 5px solid var(--active-line);
+  font-weight: 600;
+  /* ตัวหนาขึ้นเมื่อเลือก */
+}
+
+.nav-icon {
+  width: 25px;
+  /* พื้นที่ icon กว้างขึ้น */
+  display: flex;
+  justify-content: center;
+  margin-right: 15px;
+  font-size: 1.3rem;
+  /* *** Icon ใหญ่ขึ้น *** */
+}
+
+/* ปรับตำแหน่ง Icon ตอนยุบ */
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 18px 0;
+}
+
+.sidebar.collapsed .nav-icon {
+  margin-right: 0;
+  font-size: 1.5rem;
+  /* Icon ตอนยุบให้ใหญ่สะใจ */
+}
+
+/* --- Footer --- */
+.sidebar-footer {
+  padding: 15px 0;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f8fbff;
+}
+
+.nav-item.logout {
+  color: #d32f2f;
+  /* สีแดงเข้ม */
+}
+
+.nav-item.logout:hover {
+  background-color: #ffebee;
+}

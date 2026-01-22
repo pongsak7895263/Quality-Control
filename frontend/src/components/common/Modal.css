@@ -1,0 +1,498 @@
+/* src/components/common/Modal.css */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease-out;
+    position: relative;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  /* Modal Sizes */
+  .modal-small {
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .modal-medium {
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  .modal-large {
+    width: 100%;
+    max-width: 900px;
+  }
+  
+  .modal-xlarge {
+    width: 100%;
+    max-width: 1200px;
+  }
+  
+  .modal-fullscreen {
+    width: 95vw;
+    max-width: none;
+    height: 95vh;
+    max-height: none;
+  }
+  
+  /* Modal Header */
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 2rem 1rem 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 12px 12px 0 0;
+  }
+  
+  .modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.4;
+  }
+  
+  .modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0.25rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    line-height: 1;
+  }
+  
+  .modal-close-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+  
+  .modal-close-btn:active {
+    background: #e5e7eb;
+  }
+  
+  /* Modal Body */
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 2rem 2rem 2rem;
+  }
+  
+  /* Form Sections */
+  .form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+  
+  .form-section h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .form-section h3::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 2px;
+  }
+  
+  /* Form Actions */
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 2rem;
+  }
+  
+  .form-actions .btn {
+    min-width: 120px;
+  }
+  
+  /* Measurement Table */
+  .measurement-table {
+    margin: 1rem 0;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .measurement-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .measurement-table th {
+    background: #f9fafb;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.9rem;
+  }
+  
+  .measurement-table td {
+    padding: 8px;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: center;
+  }
+  
+  .measurement-table td input,
+  .measurement-table td select {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+  }
+  
+  .measurement-table td input:focus,
+  .measurement-table td select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+  
+  /* Result Display */
+  .result-display {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+    font-weight: 600;
+    color: #0c4a6e;
+  }
+  
+  .result-display.fail {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #7f1d1d;
+  }
+  
+  /* Standard Info */
+  .standard-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .standard-info h4 {
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+  }
+  
+  .standard-info p {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  
+  /* Composition Grid */
+  .composition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .composition-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #fafafa;
+  }
+  
+  .composition-group label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .composition-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  
+  .composition-input-wrapper input {
+    flex: 1;
+    padding-right: 2rem;
+  }
+  
+  .percent-symbol {
+    position: absolute;
+    right: 8px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+  
+  .standard-range {
+    margin-top: 0.25rem;
+  }
+  
+  .standard-range small {
+    color: #6b7280;
+    font-size: 0.8rem;
+  }
+  
+  .validation-result {
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .validation-result.pass {
+    color: #059669;
+  }
+  
+  .validation-result.fail {
+    color: #dc2626;
+  }
+  
+  /* Test Summary */
+  .test-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  
+  .validation-summary {
+    text-align: center;
+  }
+  
+  .summary-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .stat-item {
+    text-align: center;
+  }
+  
+  .stat-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  
+  .stat-item.pass .stat-value {
+    color: #059669;
+  }
+  
+  .stat-item.fail .stat-value {
+    color: #dc2626;
+  }
+  
+  .overall-result {
+    font-size: 1.1rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    background: white;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .no-validation {
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
+    padding: 2rem;
+  }
+  
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .modal-overlay {
+      padding: 0.5rem;
+    }
+    
+    .modal {
+      border-radius: 8px;
+      max-height: 95vh;
+    }
+    
+    .modal-header {
+      padding: 1rem 1.5rem 0.75rem 1.5rem;
+    }
+    
+    .modal-title {
+      font-size: 1.1rem;
+    }
+    
+    .modal-body {
+      padding: 1rem 1.5rem 1.5rem 1.5rem;
+    }
+    
+    .form-actions {
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+    }
+    
+    .form-actions .btn {
+      width: 100%;
+      min-width: auto;
+    }
+    
+    .composition-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+    
+    .summary-stats {
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .measurement-table {
+      font-size: 0.85rem;
+    }
+    
+    .measurement-table th,
+    .measurement-table td {
+      padding: 6px;
+    }
+    
+    /* Stack table for very small screens */
+    @media (max-width: 480px) {
+      .measurement-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      
+      .measurement-table table {
+        min-width: 600px;
+      }
+    }
+  }
+  
+  /* Scrollbar Styling */
+  .modal-body::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  
+  .modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  
+  .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  /* High contrast mode */
+  @media (prefers-contrast: high) {
+    .modal {
+      border: 2px solid #000;
+    }
+    
+    .modal-header {
+      border-bottom: 2px solid #000;
+    }
+    
+    .form-section {
+      border-bottom: 2px solid #000;
+    }
+  }
+  
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .modal-overlay {
+      animation: none;
+    }
+    
+    .modal {
+      animation: none;
+    }
+    
+    .modal-close-btn {
+      transition: none;
+    }
+  }

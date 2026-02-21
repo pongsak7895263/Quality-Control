@@ -1,218 +1,241 @@
-import {
-  getAllInspections,
-  getInspectionStats,
-  createInspection,
-  updateInspection,
-  deleteInspection,
-} from "../models/inspectionModel.js";
+/**
+ * inspectionController.js - ฉบับแก้ไข (Fix Null Validation Error)
+ * แก้ไขปัญหา: Map keys จาก snake_case (Frontend) -> camelCase (Database Model)
+ */
 
-// GET all inspections with filters and pagination
-export const getInspections = async (req, res) => {
-  try {
-    console.log("Query Params Received:", req.query); // ดู log ว่า frontend ส่งอะไรมา
-    // ✅ 1. แก้ไข: รับค่า Filter ใหม่ๆ จาก Query Params
-    const {
-      status,
-      supplier_name, // Frontend ส่งมาเป็น supplier_name หรือ supplier เช็คให้ตรงกัน
-      maker_mat,     // ✅ เพิ่มตัวกรอง Maker Mat
-      receipt_date,  // ✅ เพิ่มตัวกรอง Receipt Date
-      material_grade,
-      cer_number,
-      page = 1,
-      limit = 10
-    } = req.query;
+const db = require("../models");
+const { MaterialInspection, InspectionFile } = db;
+const { Op } = db.Sequelize;
 
-    const filters = {
-      status: status || null,
-      supplier_name: supplier_name || req.query.supplier || null, // รองรับทั้งสองชื่อ
-      maker_mat: maker_mat || null,       // ✅ ส่งเข้า Model
-      receipt_date: receipt_date || null, // ✅ ส่งเข้า Model
-      material_grade: material_grade || null,
-      cer_number: cer_number || null,
-      page: parseInt(page),
-      limit: parseInt(limit),
-    };
+const inspectionController = {
 
-    const result = await getAllInspections(filters);
-    res.json({
-      success: true,
-      data: result.data,
-      pagination: result.pagination,
-    });
-  } catch (err) {
-    console.error("❌ Error in getInspections:", err);
-    res.status(500).json({
-      success: false,
-      message: "An error occurred while fetching inspections.",
-    });
-  }
-};
+  // ----------------------------------------------------------------
+  // 1. GET ALL
+  // ----------------------------------------------------------------
+  getInspections: async (req, res) => {
+    try {
+      const { 
+        page = 1, limit = 10, search, 
+        status, material_grade, supplier_name, month 
+      } = req.query;
 
-// GET statistics (ส่วนนี้ไม่ต้องแก้)
-export const getStats = async (req, res) => {
-  try {
-    const stats = await getInspectionStats();
-    res.json({
-      success: true,
-      data: stats,
-    });
-  } catch (err) {
-    console.error("❌ Error in getStats:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "An error occurred while fetching stats.",
-    });
-  }
-};
+      const where = {};
 
-// POST create new inspection
-export const addInspection = async (req, res) => {
-  console.log("--- ADD INSPECTION START ---");
-  console.log("Received Body:", req.body);
+      if (search) {
+        where[Op.or] = [
+          { batchNumber: { [Op.iLike]: `%${search}%` } }, // แก้เป็น camelCase
+          { supplierName: { [Op.iLike]: `%${search}%` } },
+          { makerMat: { [Op.iLike]: `%${search}%` } },
+          { invoiceNumber: { [Op.iLike]: `%${search}%` } },
+          { materialGrade: { [Op.iLike]: `%${search}%` } }
+        ];
+      }
 
-  try {
-    // --- STEP 1: VALIDATE REQUIRED FIELDS ---
-    const {
-      material_type,
-      material_grade,
-      batch_number,
-      supplier_name,
-      maker_mat,      // ✅ รับค่า
-      receipt_date,   // ✅ รับค่า
-      invoice_number,
-      inspector,
-    } = req.body;
+      if (status) where.overallResult = status;
+      if (material_grade) where.materialGrade = material_grade;
+      if (supplier_name) where.supplierName = { [Op.iLike]: `%${supplier_name}%` };
 
-    // ✅ 2. แก้ไข: เพิ่ม validation ให้ maker_mat และ receipt_date จำเป็นต้องมี
-    if (
-      !material_type ||
-      !material_grade ||
-      !batch_number ||
-      !supplier_name ||
-      !invoice_number ||
-      !inspector ||
-      !maker_mat ||   // ✅ เช็คว่าห้ามว่าง
-      !receipt_date   // ✅ เช็คว่าห้ามว่าง
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields (Please check Maker Mat or Receipt Date).",
+      if (month) {
+        const startDate = new Date(`${month}-01`);
+        const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+        where.receiptDate = { [Op.between]: [startDate, endDate] };
+      }
+
+      const offset = (page - 1) * limit;
+      const { count, rows } = await MaterialInspection.findAndCountAll({
+        where,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        order: [['created_at', 'DESC']],
+        include: [
+          {
+            model: InspectionFile,
+            as: 'attached_files',
+            attributes: ['id', 'file_path', 'original_name', 'file_type', 'file_size']
+          }
+        ],
+        distinct: true
       });
+
+      res.json({
+        success: true,
+        data: rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: count,
+          totalPages: Math.ceil(count / limit)
+        }
+      });
+
+    } catch (err) {
+      console.error("❌ Error in getInspections:", err);
+      res.status(500).json({ success: false, message: err.message });
     }
+  },
 
-    // --- STEP 2: PREPARE DATA FOR SAVING ---
-    const data = { ...req.body };
+  // ----------------------------------------------------------------
+  // 2. GET STATS
+  // ----------------------------------------------------------------
+  getStats: async (req, res) => {
+    try {
+      const totalInspections = await MaterialInspection.count();
+      const passCount = await MaterialInspection.count({ where: { overallResult: 'pass' } });
+      const failCount = await MaterialInspection.count({ where: { overallResult: 'fail' } });
+      const pendingCount = await MaterialInspection.count({ where: { overallResult: 'pending' } });
 
-    // Parse nested JSON from FormData (สำคัญมาก เพราะ FormData ส่ง Array มาเป็น String)
-    if (data.bar_inspections && typeof data.bar_inspections === "string") {
-      try {
-        data.bar_inspections = JSON.parse(data.bar_inspections);
-      } catch (e) {
-        console.error("Error parsing bar_inspections", e);
-        data.bar_inspections = [];
+      res.json({
+        success: true,
+        data: { totalInspections, passCount, failCount, pendingCount }
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, message: "Failed to fetch stats" });
+    }
+  },
+
+  // ----------------------------------------------------------------
+  // 3. CREATE (แก้ไข: Map ข้อมูลให้ตรง Model)
+  // ----------------------------------------------------------------
+  addInspection: async (req, res) => {
+    const t = await db.sequelize.transaction();
+    try {
+      // ดึงค่าจาก Frontend (snake_case)
+      const {
+        material_type, material_grade, batch_number, supplier_name,
+        maker_mat, receipt_date, invoice_number, inspector, 
+        cer_number, inspection_quantity, notes, overall_result,
+        bar_inspections, rod_inspections
+      } = req.body;
+
+      // แปลง JSON String (ถ้ามี)
+      let parsedBars = [], parsedRods = [];
+      try { parsedBars = (typeof bar_inspections === 'string') ? JSON.parse(bar_inspections) : bar_inspections || []; } catch(e) {}
+      try { parsedRods = (typeof rod_inspections === 'string') ? JSON.parse(rod_inspections) : rod_inspections || []; } catch(e) {}
+
+      // ✅ สร้าง Object ใหม่ให้ Key ตรงกับ Model (camelCase)
+      const payload = {
+        materialType: material_type,
+        materialGrade: material_grade,
+        batchNumber: batch_number,
+        supplierName: supplier_name,
+        makerMat: maker_mat,
+        receiptDate: receipt_date,
+        invoiceNumber: invoice_number,
+        inspector: inspector,
+        cerNumber: cer_number,
+        inspectionQuantity: inspection_quantity,
+        notes: notes,
+        overallResult: overall_result || 'pending',
+        barInspections: parsedBars, // Model จะบันทึกเป็น JSON เอง
+        rodInspections: parsedRods
+      };
+
+      // บันทึก Header
+      const newInsp = await MaterialInspection.create(payload, { transaction: t });
+
+      // บันทึกไฟล์
+      if (req.files && req.files.length > 0) {
+        const fileData = req.files.map((file) => ({
+          inspection_id: newInsp.id,
+          file_path: file.path.replace(/\\/g, "/"), 
+          original_name: file.originalname,
+          file_type: file.mimetype,
+          file_size: file.size
+        }));
+        await InspectionFile.bulkCreate(fileData, { transaction: t });
       }
+
+      await t.commit();
+      res.status(201).json({ success: true, message: "Created successfully", data: newInsp });
+
+    } catch (error) {
+      await t.rollback();
+      console.error("🚨 ADD FAILED:", error);
+      res.status(500).json({ success: false, message: error.message, error: error });
     }
-    if (data.rod_inspections && typeof data.rod_inspections === "string") {
-      try {
-        data.rod_inspections = JSON.parse(data.rod_inspections);
-      } catch (e) {
-        console.error("Error parsing rod_inspections", e);
-        data.rod_inspections = [];
+  },
+
+  // ----------------------------------------------------------------
+  // 4. UPDATE (แก้ไข: Map ข้อมูลให้ตรง Model)
+  // ----------------------------------------------------------------
+  editInspection: async (req, res) => {
+    const t = await db.sequelize.transaction();
+    try {
+      const { id } = req.params;
+      const {
+        material_type, material_grade, batch_number, supplier_name,
+        maker_mat, receipt_date, invoice_number, inspector, 
+        cer_number, inspection_quantity, notes, overall_result,
+        bar_inspections, rod_inspections
+      } = req.body;
+
+      let parsedBars = [], parsedRods = [];
+      try { parsedBars = (typeof bar_inspections === 'string') ? JSON.parse(bar_inspections) : bar_inspections; } catch(e) {}
+      try { parsedRods = (typeof rod_inspections === 'string') ? JSON.parse(rod_inspections) : rod_inspections; } catch(e) {}
+
+      // ✅ Map ข้อมูลสำหรับ Update
+      const updatePayload = {};
+      if (material_type) updatePayload.materialType = material_type;
+      if (material_grade) updatePayload.materialGrade = material_grade;
+      if (batch_number) updatePayload.batchNumber = batch_number;
+      if (supplier_name) updatePayload.supplierName = supplier_name;
+      if (maker_mat) updatePayload.makerMat = maker_mat;
+      if (receipt_date) updatePayload.receiptDate = receipt_date;
+      if (invoice_number) updatePayload.invoiceNumber = invoice_number;
+      if (inspector) updatePayload.inspector = inspector;
+      if (cer_number) updatePayload.cerNumber = cer_number;
+      if (inspection_quantity) updatePayload.inspectionQuantity = inspection_quantity;
+      if (notes) updatePayload.notes = notes;
+      if (overall_result) updatePayload.overallResult = overall_result;
+      if (parsedBars) updatePayload.barInspections = parsedBars;
+      if (parsedRods) updatePayload.rodInspections = parsedRods;
+
+      const [updated] = await MaterialInspection.update(updatePayload, { where: { id }, transaction: t });
+      
+      if (!updated) {
+        await t.rollback();
+        return res.status(404).json({ success: false, error: "Not found" });
       }
+
+      // เพิ่มไฟล์ใหม่
+      if (req.files && req.files.length > 0) {
+          const fileData = req.files.map((file) => ({
+            inspection_id: id,
+            file_path: file.path.replace(/\\/g, "/"),
+            original_name: file.originalname,
+            file_type: file.mimetype,
+            file_size: file.size
+          }));
+          await InspectionFile.bulkCreate(fileData, { transaction: t });
+      }
+
+      await t.commit();
+      
+      const updatedInspection = await MaterialInspection.findByPk(id, {
+        include: [{ model: InspectionFile, as: 'attached_files' }]
+      });
+      res.json({ success: true, message: "Updated successfully", data: updatedInspection });
+
+    } catch (err) {
+      await t.rollback();
+      console.error("❌ EDIT FAILED:", err);
+      res.status(500).json({ success: false, error: err.message });
     }
+  },
 
-    // Process uploaded files
-    if (req.files && req.files.length > 0) {
-      //data.uploaded_files = req.files.map((file) => file.path); // หรือ file.filename ขึ้นอยู่กับ config upload
-      data.uploaded_files = req.files.map((file) => ({
-        file_path: file.path.replace(/\\/g, "/"), // แก้ Path Windows (\ -> /)
-        original_name: file.originalname,          // เก็บชื่อไฟล์เดิม
-        file_type: file.mimetype,                  // เก็บประเภทไฟล์
-        file_size: file.size                       // เก็บขนาดไฟล์
-      }));
+  // ----------------------------------------------------------------
+  // 5. DELETE
+  // ----------------------------------------------------------------
+  removeInspection: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await MaterialInspection.destroy({ where: { id } });
+      if (!result) return res.status(404).json({ success: false, error: "Not found" });
+      res.status(200).json({ success: true, message: "Deleted successfully" });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
     }
-
-    // --- STEP 3: SAVE TO DATABASE ---
-    // เรียกใช้ Model (ต้องแน่ใจว่า Model เขียน SQL รองรับ maker_mat แล้ว)
-    const newInspection = await createInspection(data);
-
-    res.status(201).json({
-      success: true,
-      message: "Inspection created successfully",
-      data: newInspection,
-    });
-
-  } catch (error) {
-    console.error("--- 🚨 SAVE FAILED 🚨 ---", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create inspection.",
-      error: error.message,
-    });
   }
 };
 
-// PUT update inspection
-export const editInspection = async (req, res) => {
-  try {
-    const { id } = req.params;
-    let updateData = { ...req.body }; // Copy body มาเพื่อแก้ไข
-
-    // ✅ 3. แก้ไข: เพิ่ม Logic การ Parse JSON เหมือนตอน Create 
-    // เพราะถ้าแก้ไขแล้วมีการแนบรูปใหม่มาด้วย Frontend อาจจะส่งมาเป็น FormData ซึ่ง Array จะกลายเป็น String
-    if (updateData.bar_inspections && typeof updateData.bar_inspections === "string") {
-      updateData.bar_inspections = JSON.parse(updateData.bar_inspections);
-    }
-    if (updateData.rod_inspections && typeof updateData.rod_inspections === "string") {
-      updateData.rod_inspections = JSON.parse(updateData.rod_inspections);
-    }
-
-    // จัดการไฟล์ใหม่ถ้ามีการอัปโหลดเพิ่มตอนแก้ไข
-    if (req.files && req.files.length > 0) {
-      // Logic นี้ขึ้นอยู่กับว่าคุณอยาก "เพิ่มต่อ" หรือ "ทับของเดิม"
-      // อันนี้สมมติว่าเอา path ใหม่ใส่เข้าไป (Backend Model ต้องจัดการต่อเอง)
-      //updateData.new_images = req.files.map((file) => file.path);
-      data.uploaded_files = req.files.map((file) => ({
-        file_path: file.path.replace(/\\/g, "/"),
-        original_name: file.originalname, // สำคัญ! ต้องเก็บชื่อเดิม
-        file_type: file.mimetype
-      }));
-    }
-
-    if (!id) {
-      return res.status(400).json({ success: false, error: "Inspection ID is required" });
-    }
-
-    const updated = await updateInspection(id, updateData);
-
-    if (!updated) {
-      return res.status(404).json({ success: false, error: "Inspection not found" });
-    }
-    res.json({
-      success: true,
-      message: "Inspection updated successfully",
-      data: updated,
-    });
-  } catch (err) {
-    console.error("Error in editInspection:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// DELETE inspection (ส่วนนี้ไม่ต้องแก้)
-export const removeInspection = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ success: false, error: "Inspection ID is required" });
-    }
-    const result = await deleteInspection(id);
-    if (!result) {
-      return res.status(404).json({ success: false, error: "Inspection not found" });
-    }
-    res.status(204).send();
-  } catch (err) {
-    console.error("Error in removeInspection:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+module.exports = inspectionController;

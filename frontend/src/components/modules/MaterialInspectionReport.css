@@ -1,0 +1,137 @@
+/* ============================================
+   📊 MATERIAL INSPECTION REPORT - CUSTOM LAYOUT
+   ============================================ */
+
+   :root {
+    --primary: #4e73df;
+    --primary-dark: #224abe;
+    --success: #1cc88a;
+    --danger: #e74a3b;
+    --warning: #f6c23e;
+    --gray-100: #f8f9fc;
+    --gray-200: #eaecf4;
+    --gray-800: #5a5c69;
+    --white: #ffffff;
+    --shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    --border-radius: 12px;
+  }
+  
+  .report-container {
+    padding: 2rem;
+    background-color: var(--gray-100);
+    min-height: 100vh;
+    font-family: 'Sarabun', sans-serif;
+  }
+  
+  /* --- Grid System สำหรับกราฟ --- */
+  .charts-grid {
+    display: grid;
+    /* พื้นฐานแบ่งเป็น 2 คอลัมน์ */
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 1.5rem;
+    width: 100%;
+  }
+  
+  /* บังคับให้กราฟที่ต้องการ (Bar & Monthly Trend) ขยายเต็มบรรทัด */
+  .chart-container.full-width {
+    grid-column: 1 / -1; 
+  }
+  
+  .chart-container {
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    width: 100%;
+    transition: transform 0.2s ease;
+  }
+  
+  .chart-container:hover {
+    transform: translateY(-3px);
+  }
+  
+  .chart-container h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    color: var(--gray-800);
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  /* --- Summary Cards --- */
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .summary-card {
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border-left: 5px solid #dddfeb;
+  }
+  
+  .summary-card.total { border-left-color: var(--primary); }
+  .summary-card.pass { border-left-color: var(--success); }
+  .summary-card.fail { border-left-color: var(--danger); }
+  
+  .summary-card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+  
+  .summary-card-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #858796;
+    font-weight: 700;
+  }
+  
+  /* --- Table Styling --- */
+  .details-section {
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-top: 2rem;
+    overflow-x: auto;
+  }
+  
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .report-table th {
+    background-color: var(--gray-100);
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--gray-200);
+    color: var(--gray-800);
+  }
+  
+  .report-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  
+  /* --- Responsive สำหรับ Tablet & Mobile --- */
+  @media (max-width: 1024px) {
+    .charts-grid {
+      grid-template-columns: 1fr; /* ปรับเป็น 1 คอลัมน์ทั้งหมดเมื่อจอเล็กลง */
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .report-container {
+      padding: 1rem;
+    }
+    .filter-grid {
+      grid-template-columns: 1fr;
+    }
+  }

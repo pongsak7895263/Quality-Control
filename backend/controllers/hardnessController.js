@@ -1,543 +1,387 @@
 const db = require('../config/database');
 
 // ==========================================
-// 1. Part Master Management (จัดการข้อมูลสินค้า)
+// 1. Master Data Management
 // ==========================================
-
-// 1.1 ดึงข้อมูล Parts ทั้งหมด
 exports.getParts = async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT part_no AS "partNo", 
-              part_name AS "partName", 
-              material, 
-              spec_min AS "specMin", 
-              spec_max AS "specMax", 
-              scale,
-              standard_ref AS "standardRef",
-              standard_image_url AS "standardImage",
-              is_active AS "isActive"
-       FROM master.parts 
-       ORDER BY part_no`
-    );
+    const result = await db.query(`
+      SELECT id, part_no AS "partno", part_name AS "partname", 
+             material, spec_min AS "specmin", spec_max AS "specmax", 
+             scale, standard_ref AS "standardref", standard_image_url AS "standardimage", is_active AS "isactive"
+      FROM parts 
+      ORDER BY part_no ASC
+    `);
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching parts:', error);
-    res.status(500).json({ message: 'Error fetching parts' });
+    console.error("Get Parts Error:", error.message);
+    res.json([]);
   }
 };
 
-// 1.2 เพิ่มข้อมูล Part ใหม่
 exports.addPart = async (req, res) => {
   try {
-    const { partNo, partName, material, specMin, specMax, scale, standardRef } = req.body;
+    const { partno, partname, material, specmin, specmax, scale, standardref } = req.body;
+    if (!partno || !partname) return res.status(400).json({ success: false, message: 'กรุณาระบุ partno และ partname' });
 
-    // Validation
-    if (!partNo || !partName) {
-      return res.status(400).json({ success: false, message: 'กรุณาระบุ Part No และ Part Name' });
-    }
-
-    // แปลงค่าว่าง string เป็น null
-    const vSpecMin = (specMin === '' || specMin === undefined) ? null : specMin;
-    const vSpecMax = (specMax === '' || specMax === undefined) ? null : specMax;
+    const vSpecMin = (specmin === '' || specmin === undefined) ? null : specmin;
+    const vSpecMax = (specmax === '' || specmax === undefined) ? null : specmax;
 
     const query = `
-      INSERT INTO master.parts (
-        part_no, part_name, material, spec_min, spec_max, scale, standard_ref
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO parts (part_no, part_name, material, spec_min, spec_max, scale, standard_ref)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) 
       RETURNING *
     `;
-    
-    const values = [partNo, partName, material, vSpecMin, vSpecMax, scale, standardRef];
-    
-    const result = await db.query(query, values);
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'เพิ่มข้อมูล Part สำเร็จ', 
-      data: result.rows[0] 
-    });
-
+    const result = await db.query(query, [partno, partname, material, vSpecMin, vSpecMax, scale, standardref]);
+    res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    if (error.code === '23505') { // Duplicate Key Error
-      return res.status(409).json({ success: false, message: 'Part No นี้มีอยู่ในระบบแล้ว' });
-    }
-    console.error('Error adding part:', error);
-    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
-  }
-};
-
-// 1.3 แก้ไขข้อมูล Part
-exports.updatePart = async (req, res) => {
-  try {
-    const { partNo } = req.params;
-    const decodedPartNo = decodeURIComponent(partNo);
-    const { partName, material, specMin, specMax, scale, standardRef, standardImage, isActive } = req.body;
-
-    const query = `
-      UPDATE master.parts SET
-        part_name = $1,
-        material = $2,
-        spec_min = $3,
-        spec_max = $4,
-        scale = $5,
-        standard_ref = $6,
-        standard_image_url = $7,
-        is_active = $8,
-        updated_at = NOW()
-      WHERE part_no = $9
-      RETURNING *
-    `;
-    
-    // แปลงค่าว่างเป็น null
-    const vSpecMin = (specMin === '' || specMin === undefined) ? null : specMin;
-    const vSpecMax = (specMax === '' || specMax === undefined) ? null : specMax;
-
-    const values = [
-      partName, 
-      material, 
-      vSpecMin, 
-      vSpecMax, 
-      scale, 
-      standardRef, 
-      standardImage,
-      isActive !== false, // Default true
-      decodedPartNo
-    ];
-    
-    const result = await db.query(query, values);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'ไม่พบ Part No ที่ต้องการแก้ไข' });
-    }
-    
-    res.json({ 
-      success: true, 
-      message: 'แก้ไขข้อมูลสำเร็จ', 
-      data: result.rows[0] 
-    });
-    
-  } catch (error) {
-    console.error('Error updating part:', error);
-    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + error.message });
-  }
-};
-
-// 1.4 ลบข้อมูล Part
-exports.deletePart = async (req, res) => {
-  try {
-    const { partNo } = req.params;
-    const decodedPartNo = decodeURIComponent(partNo);
-    
-    // เช็คก่อนลบ
-    const checkResult = await db.query('SELECT part_no FROM master.parts WHERE part_no = $1', [decodedPartNo]);
-    
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'ไม่พบ Part No ที่ต้องการลบ' });
-    }
-    
-    await db.query('DELETE FROM master.parts WHERE part_no = $1', [decodedPartNo]);
-    
-    res.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
-    
-  } catch (error) {
-    if (error.code === '23503') { // Foreign Key Violation
-      return res.status(409).json({ success: false, message: 'ไม่สามารถลบได้ เนื่องจากมีข้อมูลการตรวจสอบที่อ้างอิงถึง Part นี้อยู่' });
-    }
-    console.error('Error deleting part:', error);
-    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + error.message });
-  }
-};
-
-// ==========================================
-// 2. Supplier Management
-// ==========================================
-
-// 2.1 ดึงข้อมูล Suppliers
-exports.getSuppliers = async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT id, name, code FROM master.suppliers ORDER BY name`
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching suppliers:', error);
-    res.status(500).json({ message: 'Error fetching suppliers' });
-  }
-};
-
-// ==========================================
-// 3. Inspection Transaction (บันทึกผลตรวจสอบ)
-// ==========================================
-
-// 3.1 สร้างรายการตรวจสอบใหม่ (Create Inspection Job)
-exports.createInspection = async (req, res) => {
-  const client = await db.getClient();
-  
-  try {
-    await client.query('BEGIN');
-
-    const jobData = req.body.data ? JSON.parse(req.body.data) : req.body; 
-    const files = req.files || [];
-
-    console.log('Creating Inspection for Part:', jobData.partNo);
-
-    // ป้องกันข้อมูลซ้ำ (Duplicate Check) - เฉพาะ Lot/Heat เดิม ของ Part เดิม
-    const checkQuery = `
-        SELECT job_id, lot_no, heat_no_internal 
-        FROM operation.inspection_jobs 
-        WHERE part_no = $1 
-          AND (
-            ($2::text <> '' AND TRIM(lot_no) = TRIM($2::text)) 
-            OR 
-            ($3::text <> '' AND TRIM(heat_no_internal) = TRIM($3::text))
-          )
-        LIMIT 1
-    `;
-
-    const duplicateCheck = await client.query(checkQuery, [
-        jobData.partNo, 
-        jobData.lotNo || '', 
-        jobData.internalHeatNo || ''
-    ]);
-
-    if (duplicateCheck.rows.length > 0) {
-        throw new Error(`ข้อมูลซ้ำ: Lot หรือ Heat No นี้ถูกบันทึกไปแล้วสำหรับ Part ${jobData.partNo}`);
-    }
-
-    // Insert Header
-    const insertJobQuery = `
-      INSERT INTO operation.inspection_jobs (
-        part_no, part_name_snapshot, material_snapshot, spec_min_snapshot, spec_max_snapshot, scale_snapshot,
-        supplier_id, report_no, lot_no, heat_no_supplier, process_type,
-        inspector_name, inspection_type, sampling_rate, overall_status, remarks
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-      RETURNING job_id
-    `;
-
-    const failedCount = jobData.measurements ? jobData.measurements.filter(m => m.status === 'FAIL').length : 0;
-    const overallStatus = failedCount > 0 ? 'FAIL' : 'PASS';
-
-    let supplierId = null;
-    if (jobData.supplier) {
-        const supRes = await client.query('SELECT id FROM master.suppliers WHERE name = $1 OR code = $1', [jobData.supplier]);
-        if(supRes.rows.length > 0) supplierId = supRes.rows[0].id;
-    }
-
-    const jobValues = [
-      jobData.partNo, jobData.partName, jobData.material, jobData.specMin, jobData.specMax, jobData.scale,
-      supplierId, jobData.reportNo, jobData.lotNo, jobData.internalHeatNo, jobData.supplierHeatNo, jobData.processType,
-      'Operator 1', 
-      jobData.inspectionType, jobData.samplingRate, overallStatus, jobData.remarks || ''
-    ];
-
-    const jobResult = await client.query(insertJobQuery, jobValues);
-    const newJobId = jobResult.rows[0].job_id;
-
-    // Insert Measurements
-    if (jobData.measurements && jobData.measurements.length > 0) {
-      const insertMeasureQuery = `
-        INSERT INTO operation.measurements (job_id, piece_no, measure_value, status, point_type)
-        VALUES ($1, $2, $3, $4, $5)
-      `;
-      for (const m of jobData.measurements) {
-        await client.query(insertMeasureQuery, [newJobId, m.pieceNo, m.value, m.status, m.inspectionType]);
-      }
-    }
-
-    // Insert Attachments
-    if (files.length > 0) {
-      const insertFileQuery = `
-        INSERT INTO operation.attachments (job_id, file_name, file_path, file_type, file_size)
-        VALUES ($1, $2, $3, $4, $5)
-      `;
-      for (const file of files) {
-        await client.query(insertFileQuery, [
-          newJobId, file.originalname, file.path, file.mimetype, (file.size / 1024).toFixed(2) + ' KB'
-        ]);
-      }
-    }
-
-    await client.query('COMMIT');
-    res.status(201).json({ success: true, message: 'Inspection saved successfully', jobId: newJobId });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Transaction Error:', error);
-    res.status(500).json({ success: false, message: 'Database Transaction Failed: ' + error.message });
-  } finally {
-    client.release();
-  }
-};
-
-// 3.2 ดึงประวัติการตรวจสอบ (Get History)
-exports.getHistory = async (req, res) => {
-  try {
-    const query = `
-      SELECT 
-        j.job_id AS "id",
-        TO_CHAR(j.job_date, 'YYYY-MM-DD') AS "date",
-        TO_CHAR(j.job_time, 'HH24:MI:SS') AS "time",
-        j.part_no AS "partNo",
-        j.lot_no AS "lotNo",
-        j.overall_status AS "status",
-        j.inspector_name AS "inspector",
-        j.scale_snapshot AS "scale",
-        j.remarks,
-        (SELECT point_type FROM operation.measurements WHERE job_id = j.job_id LIMIT 1) AS "point",
-        (SELECT measure_value FROM operation.measurements WHERE job_id = j.job_id LIMIT 1) AS "value",
-        (SELECT edit_reason FROM audit.inspection_edits WHERE job_id = j.job_id ORDER BY edited_at DESC LIMIT 1) AS "editDetails"
-      FROM operation.inspection_jobs j
-      ORDER BY j.created_at DESC
-      LIMIT 100
-    `;
-
-    const result = await db.query(query);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching history:', error);
-    res.status(500).json({ message: 'Error fetching history' });
-  }
-};
-
-// 3.3 อัปเดตข้อมูล (Update + Audit Log)
-exports.updateInspection = async (req, res) => {
-  const client = await db.getClient();
-  try {
-    const { id } = req.params;
-    const updateData = req.body.updateData || req.body; 
-    const reason = req.body.reason || req.body.editDetails || 'Manual Update';
-
-    console.log(`Updating Job ID: ${id}`, updateData);
-
-    await client.query('BEGIN');
-
-    // 1. ดึงข้อมูลเดิม
-    const oldJobRes = await client.query('SELECT overall_status FROM operation.inspection_jobs WHERE job_id = $1', [id]);
-    
-    if (oldJobRes.rows.length === 0) {
-      throw new Error('ไม่พบข้อมูล Job ID นี้');
-    }
-    
-    const oldStatus = oldJobRes.rows[0].overall_status;
-    const newStatus = updateData.status || oldStatus; 
-
-    // 2. อัปเดตข้อมูล (ตัวอย่าง: แก้ไข Lot, Inspector, Remarks, Status)
-    const updateQuery = `
-        UPDATE operation.inspection_jobs 
-        SET 
-            lot_no = COALESCE($1, lot_no),
-            inspector_name = COALESCE($2, inspector_name),
-            remarks = COALESCE($3, remarks),
-            overall_status = $4,
-            updated_at = NOW()
-        WHERE job_id = $5
-    `;
-    
-    await client.query(updateQuery, [
-        updateData.lotNo,    // $1
-        updateData.inspector,// $2
-        updateData.editDetails, // หรือ remarks $3
-        newStatus,           // $4
-        id                   // $5
-    ]);
-
-    // 3. บันทึก Audit Log
-    await client.query(`
-      INSERT INTO audit.inspection_edits (job_id, edited_by, edit_reason, previous_status, new_status)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [id, 'Admin', reason, oldStatus, newStatus]);
-
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'แก้ไขข้อมูลและบันทึกประวัติสำเร็จ' });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Update Error:', error);
-    res.status(500).json({ success: false, message: 'Update failed: ' + error.message });
-  } finally {
-    client.release();
-  }
-};
-
-// 3.4 ลบข้อมูล Inspection (Delete)
-exports.deleteInspection = async (req, res) => {
-  const client = await db.getClient();
-  try {
-    const { id } = req.params;
-    console.log(`Deleting Job ID: ${id}`);
-
-    await client.query('BEGIN');
-
-    // 1. ตรวจสอบก่อนว่ามีข้อมูลไหม
-    const checkRes = await client.query('SELECT job_id FROM operation.inspection_jobs WHERE job_id = $1', [id]);
-    if (checkRes.rows.length === 0) {
-      throw new Error('ไม่พบข้อมูลที่ต้องการลบ');
-    }
-
-    // 2. ลบข้อมูล Child Tables (Cascade Deletion - ถ้า DB ไม่ได้ตั้ง CASCADE ไว้)
-    await client.query('DELETE FROM operation.measurements WHERE job_id = $1', [id]);
-    await client.query('DELETE FROM operation.attachments WHERE job_id = $1', [id]);
-    await client.query('DELETE FROM audit.inspection_edits WHERE job_id = $1', [id]);
-
-    // 3. ลบข้อมูลตารางหลัก
-    await client.query('DELETE FROM operation.inspection_jobs WHERE job_id = $1', [id]);
-
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Delete Error:', error);
-    res.status(500).json({ success: false, message: 'Delete failed: ' + error.message });
-  } finally {
-    client.release();
-  }
-};
-// ... (โค้ดเดิมส่วนบนยังคงเหมือนเดิม) ...
-
-// 5. อัปเดตข้อมูล (Update)
-exports.updateInspection = async (req, res) => {
-  // ... (โค้ดเดิม) ...
-};
-
-// 6. ลบข้อมูล Inspection (Delete)
-exports.deleteInspection = async (req, res) => {
-  // ... (โค้ดเดิม) ...
-};
-
-// [NEW] 7. ดึงรายละเอียดการตรวจสอบแบบครบถ้วน (Get Full Details)
-exports.getInspectionDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // 1. ดึงข้อมูล Header (Join กับ Parts/Suppliers เพื่อให้ได้ชื่อมาแสดง)
-    const jobQuery = `
-      SELECT 
-        j.*,
-        TO_CHAR(j.job_date, 'YYYY-MM-DD') AS job_date_fmt,
-        TO_CHAR(j.job_time, 'HH24:MI:SS') AS job_time_fmt,
-        p.part_name, 
-        p.standard_ref,
-        s.name AS supplier_name
-      FROM operation.inspection_jobs j
-      LEFT JOIN master.parts p ON j.part_no = p.part_no
-      LEFT JOIN master.suppliers s ON j.supplier_id = s.id
-      WHERE j.job_id = $1
-    `;
-    const jobRes = await db.query(jobQuery, [id]);
-    
-    if (jobRes.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Inspection not found' });
-    }
-    const job = jobRes.rows[0];
-
-    // 2. ดึงข้อมูลผลการวัดทั้งหมด (Measurements)
-    const measurementsRes = await db.query(
-      'SELECT * FROM operation.measurements WHERE job_id = $1 ORDER BY piece_no ASC',
-      [id]
-    );
-
-    // 3. ดึงข้อมูลไฟล์แนบ (Attachments)
-    const filesRes = await db.query(
-      'SELECT * FROM operation.attachments WHERE job_id = $1 ORDER BY uploaded_at DESC',
-      [id]
-    );
-
-    // 4. ดึงประวัติการแก้ไข (Audit Logs)
-    const auditsRes = await db.query(
-      `SELECT 
-         e.*, 
-         TO_CHAR(e.edited_at, 'DD/MM/YYYY HH24:MI') AS edited_at_fmt 
-       FROM audit.inspection_edits e 
-       WHERE job_id = $1 
-       ORDER BY edited_at DESC`,
-      [id]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        header: job,
-        measurements: measurementsRes.rows,
-        attachments: filesRes.rows,
-        history: auditsRes.rows
-      }
-    });
-
-  } catch (error) {
-    console.error('Error fetching details:', error);
+    if (error.code === '23505') return res.status(400).json({ success: false, message: 'Part No นี้มีอยู่แล้ว' });
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// ... (โค้ดส่วนอื่นๆ คงเดิม) ...
 
-// 5. อัปเดตข้อมูล (Update) - รองรับการแก้ไขข้อมูลครบถ้วน
-exports.updateInspection = async (req, res) => {
+exports.updatePart = async (req, res) => {
+  try {
+    const { partNo } = req.params;
+    const { partname, material, specmin, specmax, scale } = req.body;
+    const query = `
+      UPDATE parts SET part_name = $1, material = $2, spec_min = $3, spec_max = $4, scale = $5 
+      WHERE part_no = $6 RETURNING *
+    `;
+    const result = await db.query(query, [partname, material, specmin, specmax, scale, partNo]);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deletePart = async (req, res) => {
+  try {
+    const { partNo } = req.params;
+    await db.query('DELETE FROM parts WHERE part_no = $1', [partNo]);
+    res.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getSuppliers = async (req, res) => {
+  try {
+    const result = await db.query(`SELECT id, name, code FROM suppliers ORDER BY name ASC`);
+    res.json(result.rows);
+  } catch (error) { res.json([]); }
+};
+
+// ==========================================
+// 2. Inspection Transaction
+// ==========================================
+exports.createInspection = async (req, res) => {
   const client = await db.getClient();
   try {
-    await client.query('BEGIN');
-    const jobId = req.params.id;
-    // รองรับโครงสร้างข้อมูลที่ส่งมาทั้งแบบ { updateData: {...}, reason: ... } หรือส่งมารวมกัน
-    const updateData = req.body.updateData || req.body; 
-    const reason = req.body.reason || req.body.editReason || 'Manual Update';
-
-    console.log(`Updating Job ID: ${jobId}`);
-
-    // 1. ดึงสถานะเดิมก่อน
-    const oldJobRes = await client.query('SELECT overall_status FROM operation.inspection_jobs WHERE job_id = $1', [jobId]);
-    
-    if (oldJobRes.rows.length === 0) {
-        throw new Error('ไม่พบข้อมูล Job ID นี้');
+    let inputData = req.body;
+    if (req.body.data && typeof req.body.data === 'string') {
+      try { inputData = { ...inputData, ...JSON.parse(req.body.data) }; } catch (e) { }
     }
-    
-    const oldStatus = oldJobRes.rows[0].overall_status;
-    const newStatus = updateData.status || oldStatus; 
 
-    // 2. อัปเดตข้อมูลในตารางหลัก (Inspection Header)
-    // ใช้ COALESCE เพื่อให้ค่าเดิมยังอยู่ถ้าไม่ได้ส่งค่าใหม่มา
-    const updateQuery = `
-        UPDATE operation.inspection_jobs 
-        SET 
-            lot_no = COALESCE($1, lot_no),
-            inspector_name = COALESCE($2, inspector_name),
-            remarks = COALESCE($3, remarks),
-            overall_status = $4,
-            report_no = COALESCE($5, report_no),
-            heat_no_internal = COALESCE($6, heat_no_internal),
-            heat_no_supplier = COALESCE($7, heat_no_supplier),
-            process_type = COALESCE($8, process_type),
-            updated_at = NOW()
-        WHERE job_id = $9
+    const normalizedData = {};
+    Object.keys(inputData).forEach(key => normalizedData[key.toLowerCase()] = inputData[key]);
+
+    const {
+      partname, partno, heatno_supplier, lotno, processtype,
+      inspector, testpoint, testvalues, reportno, supplier,
+      specmin, specmax, receiptdate
+    } = normalizedData;
+
+    const finalPartName = partname || partno;
+    const finalPartNo = partno || '';
+
+    let mainFilePath = null;
+    if (req.files && req.files.length > 0) mainFilePath = req.files[0].path.replace(/\\/g, "/");
+
+    let calculatedStatus = 'PENDING';
+    let calculatedAverage = 0;
+    let finalTestValuesJson = '[]';
+    let valuesArray = testvalues;
+    if (typeof testvalues === 'string') { try { valuesArray = JSON.parse(testvalues); } catch (e) { valuesArray = []; } }
+
+    if (Array.isArray(valuesArray) && valuesArray.length > 0) {
+      const validNumbers = valuesArray.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      if (validNumbers.length > 0) {
+        const sum = validNumbers.reduce((a, b) => a + b, 0);
+        calculatedAverage = parseFloat((sum / validNumbers.length).toFixed(2));
+        finalTestValuesJson = JSON.stringify(validNumbers);
+        if (specmin && specmax) {
+          calculatedStatus = (calculatedAverage >= parseFloat(specmin) && calculatedAverage <= parseFloat(specmax)) ? 'PASS' : 'FAIL';
+        }
+      }
+    }
+
+    await client.query('BEGIN');
+
+    const query = `
+      INSERT INTO hardness_inspections (
+        part_no, part_name, heat_no_supplier, lot_no, process_type,
+        inspector, test_point, test_values, average_value, status, 
+        remarks, report_no, supplier, file_path, receipt_date,
+        created_at, updated_at
+      ) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+      RETURNING id
     `;
-    
-    await client.query(updateQuery, [
-        updateData.lotNo,          // $1
-        updateData.inspector,      // $2
-        updateData.remarks,        // $3
-        newStatus,                 // $4
-        updateData.reportNo,       // $5 (เพิ่ม)
-        updateData.internalHeatNo, // $6 (เพิ่ม)
-        updateData.supplierHeatNo, // $7 (เพิ่ม)
-        updateData.processType,    // $8 (เพิ่ม)
-        jobId                      // $9
-    ]);
 
-    // 3. บันทึก Audit Log
-    await client.query(`
-      INSERT INTO audit.inspection_edits (job_id, edited_by, edit_reason, previous_status, new_status)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [jobId, 'Admin', reason, oldStatus, newStatus]);
+    const values = [
+      finalPartNo, finalPartName, heatno_supplier || '', lotno || '', processtype || '',
+      inspector || 'Unassigned', testpoint || 'Surface', finalTestValuesJson, calculatedAverage, calculatedStatus,
+      '', reportno || '', supplier || '', mainFilePath,
+      receiptdate || null
+    ];
 
+    const result = await client.query(query, values);
     await client.query('COMMIT');
-    res.json({ success: true, message: 'แก้ไขข้อมูลและบันทึกประวัติสำเร็จ' });
+    res.status(201).json({ success: true, message: 'บันทึกสำเร็จ', data: result.rows[0] });
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Update Error:', error);
-    res.status(500).json({ success: false, message: 'Update failed: ' + error.message });
-  } finally {
-    client.release();
+    console.error("Create Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally { client.release(); }
+};
+
+// ==========================================
+// 3. History & Management
+// ==========================================
+exports.getHistory = async (req, res) => {
+  try {
+    const { month } = req.query;
+    let whereClause = "";
+    const params = [];
+
+    if (month) {
+      whereClause = `WHERE TO_CHAR(receipt_date, 'YYYY-MM') = $1`;
+      params.push(month);
+    }
+
+    const result = await db.query(`
+      SELECT 
+        id, part_no AS "partno", part_name AS "partname", lot_no AS "lotno", heat_no_supplier AS "heatno_supplier",
+        inspector, test_point AS "testpoint", average_value AS "value", status AS "result",
+        file_path AS "fileurl", remarks AS "note",
+        TO_CHAR(created_at, 'YYYY-MM-DD') AS "date",
+        TO_CHAR(receipt_date, 'YYYY-MM-DD') AS "receiptdate",
+        report_no AS "reportno", supplier, test_values AS "testvalues", process_type AS "processtype",
+        CASE WHEN test_point = 'Surface' THEN status ELSE NULL END AS "surfacestatus",
+        CASE WHEN test_point = 'Core' THEN status ELSE NULL END AS "corestatus",
+        remarks AS "editdetails"
+      FROM hardness_inspections 
+      ${whereClause}
+      ORDER BY receipt_date DESC 
+      LIMIT 100
+    `, params);
+
+    const formattedRows = result.rows.map(row => ({
+      ...row,
+      fileurl: row.fileurl ? `http://192.168.0.26:5000/${row.fileurl.replace(/\\/g, '/')}` : null
+    }));
+
+    res.json(formattedRows);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+// ==========================================
+// ✅ FIX: getInspectionDetails - ลบ master. schema ออก + แก้ field mapping
+// ==========================================
+exports.getInspectionDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ✅ FIX: ลบ master. ออกจาก JOIN (เหมือนกับ getParts/getSuppliers ที่แก้แล้ว)
+    const result = await db.query(`
+        SELECT h.*, 
+               p.spec_min, p.spec_max, p.scale, 
+               s.name as supplier_name 
+        FROM hardness_inspections h
+        LEFT JOIN parts p ON h.part_no = p.part_no
+        LEFT JOIN suppliers s ON h.supplier = s.name
+        WHERE h.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'ไม่พบข้อมูล' });
+    }
+
+    const row = result.rows[0];
+
+    // ✅ FIX: field mapping ให้ตรงกับที่ Frontend อ่าน
+    const formattedData = {
+      header: {
+        job_id: row.id,
+        part_no: row.part_no,         // ✅ Frontend ใช้ header.part_no
+        part_name: row.part_name,     // ✅ Frontend ใช้ header.part_name
+        lot_no: row.lot_no,           // ✅ Frontend ใช้ header.lot_no
+        heat_no_supplier: row.heat_no_supplier, // ✅ Frontend ใช้ header.heat_no_supplier
+        process_type: row.process_type,         // ✅ Frontend ใช้ header.process_type
+        inspector_name: row.inspector,          // ✅ Frontend ใช้ header.inspector_name
+        overall_status: row.status,             // ✅ Frontend ใช้ header.overall_status
+        remarks: row.remarks || '',
+        report_no: row.report_no,               // ✅ Frontend ใช้ header.report_no
+        supplier: row.supplier,
+        supplier_name: row.supplier_name,
+
+        // Dates
+        job_date_fmt: new Date(row.created_at).toLocaleDateString('th-TH'),
+        job_time_fmt: new Date(row.created_at).toLocaleTimeString('th-TH'),
+        receiptdate: row.receipt_date ? new Date(row.receipt_date).toISOString().split('T')[0] : '',
+
+        // Spec snapshots (จาก master parts JOIN)
+        spec_min_snapshot: row.spec_min,   // ✅ Frontend ใช้ header.spec_min_snapshot
+        spec_max_snapshot: row.spec_max,   // ✅ Frontend ใช้ header.spec_max_snapshot
+        scale_snapshot: row.scale || 'HRC', // ✅ Frontend ใช้ header.scale_snapshot
+      },
+
+      // ✅ Parse test_values JSON → measurements array
+      measurements: (() => {
+        try {
+          const values = JSON.parse(row.test_values || '[]');
+          return values.map((v, i) => ({
+            id: i + 1,
+            piece_no: i + 1,
+            measure_value: v,
+            point_type: row.test_point || 'Surface',
+            status: (row.spec_min != null && row.spec_max != null)
+              ? (v >= parseFloat(row.spec_min) && v <= parseFloat(row.spec_max) ? 'PASS' : 'FAIL')
+              : 'PENDING'
+          }));
+        } catch (e) {
+          return [];
+        }
+      })(),
+
+      attachments: row.file_path
+        ? [{ id: 1, file_name: row.file_path.split('/').pop(), file_path: row.file_path }]
+        : [],
+      history: []
+    };
+
+    res.json({ success: true, data: formattedData });
+  } catch (error) {
+    console.error("getInspectionDetails Error:", error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-// ... (โค้ดส่วนอื่นๆ คงเดิม) ...
+
+// ==========================================
+// ✅ FIX: updateInspection - เพิ่ม logic คำนวณ test_values ใหม่
+// ==========================================
+exports.updateInspection = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { id } = req.params;
+    let bodyData = req.body.updateData || req.body;
+    if (typeof bodyData === 'string') { try { bodyData = JSON.parse(bodyData); } catch (e) { } }
+
+    const normalizedData = {};
+    Object.keys(bodyData).forEach(k => normalizedData[k.toLowerCase()] = bodyData[k]);
+
+    const {
+      status, remarks, inspector, reportno, supplier,
+      lotno, heatno_supplier, processtype, editreason,
+      testvalues, receiptdate
+    } = normalizedData;
+
+    await client.query('BEGIN');
+
+    // ดึงข้อมูลปัจจุบัน
+    const currentJobRes = await client.query(`
+      SELECT h.*, p.spec_min, p.spec_max 
+      FROM hardness_inspections h
+      LEFT JOIN parts p ON h.part_no = p.part_no
+      WHERE h.id = $1
+    `, [id]);
+
+    if (currentJobRes.rows.length === 0) throw new Error('ไม่พบรายการนี้ในระบบ');
+    const currentJob = currentJobRes.rows[0];
+
+    // ✅ คำนวณ test_values ใหม่ (ถ้ามีการส่งค่ามา)
+    let newTestValuesJson = currentJob.test_values; // ใช้ค่าเดิมเป็น default
+    let newAverage = currentJob.average_value;
+    let newStatus = status || currentJob.status;
+
+    if (testvalues && Array.isArray(testvalues) && testvalues.length > 0) {
+      const validNumbers = testvalues.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      if (validNumbers.length > 0) {
+        const sum = validNumbers.reduce((a, b) => a + b, 0);
+        newAverage = parseFloat((sum / validNumbers.length).toFixed(2));
+        newTestValuesJson = JSON.stringify(validNumbers);
+
+        // คำนวณ status ใหม่จาก spec
+        const specMin = currentJob.spec_min ? parseFloat(currentJob.spec_min) : null;
+        const specMax = currentJob.spec_max ? parseFloat(currentJob.spec_max) : null;
+        if (specMin !== null && specMax !== null) {
+          newStatus = (newAverage >= specMin && newAverage <= specMax) ? 'PASS' : 'FAIL';
+        }
+      }
+    }
+
+    // ✅ สร้าง edit detail string
+    const editDetail = editreason
+      ? `[แก้ไข ${new Date().toLocaleDateString('th-TH')}] ${editreason}`
+      : currentJob.remarks;
+
+    // ✅ Handle file upload (ถ้ามีไฟล์ใหม่)
+    let newFilePath = currentJob.file_path;
+    if (req.files && req.files.length > 0) {
+      newFilePath = req.files[0].path.replace(/\\/g, "/");
+    }
+
+    const updateQuery = `
+      UPDATE hardness_inspections SET 
+        status = $1,
+        remarks = $2,
+        inspector = COALESCE($3, inspector),
+        report_no = COALESCE($4, report_no),
+        supplier = COALESCE($5, supplier),
+        lot_no = COALESCE($6, lot_no),
+        heat_no_supplier = COALESCE($7, heat_no_supplier),
+        process_type = COALESCE($8, process_type),
+        receipt_date = $9,
+        test_values = $10,
+        average_value = $11,
+        file_path = COALESCE($12, file_path),
+        updated_at = NOW()
+      WHERE id = $13
+      RETURNING *
+    `;
+
+    await client.query(updateQuery, [
+      newStatus,                    // $1
+      editDetail,                   // $2
+      inspector || null,            // $3
+      reportno || null,             // $4
+      supplier || null,             // $5
+      lotno || null,                // $6
+      heatno_supplier || null,      // $7
+      processtype || null,          // $8
+      receiptdate || null,          // $9
+      newTestValuesJson,            // $10
+      newAverage,                   // $11
+      newFilePath,                  // $12
+      id                            // $13
+    ]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'บันทึกการแก้ไขสำเร็จ' });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Update Error:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  } finally { client.release(); }
+};
+
+exports.deleteInspection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query(`DELETE FROM hardness_inspections WHERE id = $1`, [id]);
+    res.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+};

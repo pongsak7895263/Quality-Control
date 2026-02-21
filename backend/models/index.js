@@ -1,19 +1,18 @@
 // backend/models/index.js
 const { Sequelize } = require('sequelize');
-const { sequelize } = require('../config/database'); // ตรวจสอบว่า database.js export แบบ { sequelize } หรือไม่
+const { sequelize } = require('../config/database');
 
 console.log('📦 Loading models...');
 
 // ---------------------------------------------------------
-// 1. Load Existing Models (ของเดิม)
+// 1. Load Core Models
 // ---------------------------------------------------------
 
 // Load User model
 let User;
 try {
   const UserModule = require("./User");
-  // เช็คว่าเป็น Function หรือไม่ (เพื่อรองรับทั้งสองแบบ)
-  User = (typeof UserModule === 'function') ? UserModule(sequelize) : UserModule;
+  User = (typeof UserModule === 'function') ? UserModule(sequelize, Sequelize) : UserModule;
   console.log('  ✓ User model loaded');
 } catch (error) {
   console.error('  ✗ User load error:', error.message);
@@ -22,8 +21,8 @@ try {
 // Load MaterialInspection model
 let MaterialInspection;
 try {
-  const MaterialInspectionModule = require("./xxMaterialInspection");
-  MaterialInspection = (typeof MaterialInspectionModule === 'function') ? MaterialInspectionModule(sequelize) : MaterialInspectionModule;
+  const MaterialInspectionModule = require("./XXXMaterialInspection"); 
+  MaterialInspection = (typeof MaterialInspectionModule === 'function') ? MaterialInspectionModule(sequelize, Sequelize) : MaterialInspectionModule;
   console.log('  ✓ MaterialInspection model loaded');
 } catch (error) {
   console.error('  ✗ MaterialInspection load error:', error.message);
@@ -33,15 +32,15 @@ try {
 let InspectionImage;
 try {
   const InspectionImageModule = require("./InspectionImage");
-  InspectionImage = (typeof InspectionImageModule === 'function') ? InspectionImageModule(sequelize) : InspectionImageModule;
+  InspectionImage = (typeof InspectionImageModule === 'function') ? InspectionImageModule(sequelize, Sequelize) : InspectionImageModule;
   console.log('  ✓ InspectionImage model loaded');
 } catch (error) {
   console.error('  ✗ InspectionImage load error:', error.message);
 }
-// Load InspectionFile model (ของใหม่ ✅)
+
+// Load InspectionFile model
 let InspectionFile;
 try {
-  // ตรวจสอบชื่อไฟล์ให้ตรงกับที่คุณสร้าง (inspectionFileModel.js)
   const InspectionFileModule = require("./inspectionFileModel"); 
   InspectionFile = (typeof InspectionFileModule === 'function') ? InspectionFileModule(sequelize, Sequelize) : InspectionFileModule;
   console.log('  ✓ InspectionFile model loaded');
@@ -53,106 +52,232 @@ try {
 let PasswordResetToken;
 try {
   const PasswordResetTokenModule = require("./PasswordResetToken");
-  PasswordResetToken = (typeof PasswordResetTokenModule === 'function') ? PasswordResetTokenModule(sequelize) : PasswordResetTokenModule;
+  PasswordResetToken = (typeof PasswordResetTokenModule === 'function') ? PasswordResetTokenModule(sequelize, Sequelize) : PasswordResetTokenModule;
   console.log('  ✓ PasswordResetToken model loaded');
 } catch (error) {
   console.error('  ✗ PasswordResetToken load error:', error.message);
 }
 
 // ---------------------------------------------------------
-// 2. Load Calibration Models (ของใหม่)
+// 2. Load Chemical Test Models (ใหม่!)
 // ---------------------------------------------------------
-// หมายเหตุ: ตรงนี้สำคัญ! ถ้าไฟล์ Instrument.js ของคุณ require sequelize เอง ให้ใช้ require ธรรมดา
-// แต่ถ้าไฟล์ Instrument.js รับค่า (sequelize) ให้ใช้ require(...)(sequelize)
 
-const Instrument = require('./Instrument'); 
-const CalibrationPlan = require('./CalibrationPlan');
-const CalibrationResult = require('./CalibrationResult');
-const MasterStandard = require('./MasterStandard'); // (ถ้ามี)
+let ChemicalTest;
+try {
+  const ChemicalTestModule = require("./ChemicalTest");
+  ChemicalTest = (typeof ChemicalTestModule === 'function') ? ChemicalTestModule(sequelize, Sequelize) : ChemicalTestModule;
+  console.log('  ✓ ChemicalTest model loaded');
+} catch (error) {
+  console.error('  ✗ ChemicalTest load error:', error.message);
+}
 
-if (Instrument) console.log('  ✓ Instrument model loaded');
-if (CalibrationPlan) console.log('  ✓ CalibrationPlan model loaded');
+let TestElementResult;
+try {
+  const TestElementResultModule = require("./TestElementResult");
+  TestElementResult = (typeof TestElementResultModule === 'function') ? TestElementResultModule(sequelize, Sequelize) : TestElementResultModule;
+  console.log('  ✓ TestElementResult model loaded');
+} catch (error) {
+  console.error('  ✗ TestElementResult load error:', error.message);
+}
 
+let QualityStandard;
+try {
+  const QualityStandardModule = require("./QualityStandard");
+  QualityStandard = (typeof QualityStandardModule === 'function') ? QualityStandardModule(sequelize, Sequelize) : QualityStandardModule;
+  console.log('  ✓ QualityStandard model loaded');
+} catch (error) {
+  console.error('  ✗ QualityStandard load error:', error.message);
+}
+
+let ProductionBatch;
+try {
+  const ProductionBatchModule = require("./ProductionBatch");
+  ProductionBatch = (typeof ProductionBatchModule === 'function') ? ProductionBatchModule(sequelize, Sequelize) : ProductionBatchModule;
+  console.log('  ✓ ProductionBatch model loaded');
+} catch (error) {
+  console.error('  ✗ ProductionBatch load error:', error.message);
+}
 
 // ---------------------------------------------------------
-// 3. Define Associations
+// 3. Load Calibration Models
+// ---------------------------------------------------------
+let Instrument, CalibrationPlan, CalibrationResult, MasterStandard;
+
+try {
+  Instrument = require('./Instrument');
+  if (Instrument) console.log('  ✓ Instrument model loaded');
+} catch (error) {
+  console.error('  ✗ Instrument load error:', error.message);
+}
+
+try {
+  CalibrationPlan = require('./CalibrationPlan');
+  if (CalibrationPlan) console.log('  ✓ CalibrationPlan model loaded');
+} catch (error) {
+  console.error('  ✗ CalibrationPlan load error:', error.message);
+}
+
+try {
+  CalibrationResult = require('./CalibrationResult');
+  if (CalibrationResult) console.log('  ✓ CalibrationResult model loaded');
+} catch (error) {
+  console.error('  ✗ CalibrationResult load error:', error.message);
+}
+
+try {
+  MasterStandard = require('./MasterStandard');
+  if (MasterStandard) console.log('  ✓ MasterStandard model loaded');
+} catch (error) {
+  console.error('  ✗ MasterStandard load error:', error.message);
+}
+
+// ---------------------------------------------------------
+// 4. Define Associations
 // ---------------------------------------------------------
 console.log('🔗 Setting up model associations...');
 
-// Existing Associations
+// User <-> MaterialInspection
 if (User && MaterialInspection) {
   User.hasMany(MaterialInspection, { foreignKey: "inspectorId", as: "inspections" });
   MaterialInspection.belongsTo(User, { foreignKey: "inspectorId", as: "inspectorInfo" });
+  console.log('  ✓ User <-> MaterialInspection');
 }
-// --- เพิ่มความสัมพันธ์ไฟล์แนบ (ตรงนี้ครับ ✅) ---
+
+// MaterialInspection <-> InspectionImage
+if (MaterialInspection && InspectionImage) {
+  MaterialInspection.hasMany(InspectionImage, { foreignKey: "inspectionId", as: "images" });
+  InspectionImage.belongsTo(MaterialInspection, { foreignKey: "inspectionId", as: "inspection" });
+  console.log('  ✓ MaterialInspection <-> InspectionImage');
+}
+
+// MaterialInspection <-> InspectionFile
 if (MaterialInspection && InspectionFile) {
-  // 1 Inspection มีได้หลาย File
   MaterialInspection.hasMany(InspectionFile, { 
     foreignKey: "inspection_id", 
-    as: "attached_files", // ⚠️ สำคัญ: ต้องตรงกับใน inspectionModel.js ที่เขียนว่า include: [{ model: ..., as: "attached_files" }]
-    onDelete: 'CASCADE'   // ลบ Inspection แล้วลบไฟล์ด้วย
+    as: "attached_files", 
+    onDelete: 'CASCADE'
   });
-  
-  // 1 File เป็นของ 1 Inspection
   InspectionFile.belongsTo(MaterialInspection, { 
     foreignKey: "inspection_id", 
     as: "inspection" 
   });
   console.log('  ✓ MaterialInspection <-> InspectionFile');
 }
-if (MaterialInspection && InspectionImage) {
-  MaterialInspection.hasMany(InspectionImage, { foreignKey: "inspectionId", as: "images" });
-  InspectionImage.belongsTo(MaterialInspection, { foreignKey: "inspectionId", as: "inspection" });
-}
 
+// User <-> PasswordResetToken
 if (User && PasswordResetToken) {
   User.hasMany(PasswordResetToken, { foreignKey: "userId", as: "resetTokens" });
   PasswordResetToken.belongsTo(User, { foreignKey: "userId", as: "user" });
+  console.log('  ✓ User <-> PasswordResetToken');
 }
 
-// --- Calibration Associations (เพิ่มตรงนี้) ---
+// ---------------------------------------------------------
+// 5. Chemical Test Associations (ใหม่!)
+// ---------------------------------------------------------
 
-// ตรวจสอบก่อนว่า Model ถูกโหลดมาจริง เพื่อกัน Error "is not a function"
+// ChemicalTest <-> TestElementResult
+if (ChemicalTest && TestElementResult) {
+  ChemicalTest.hasMany(TestElementResult, { 
+    foreignKey: 'chemical_test_id', 
+    as: 'elementResults',
+    onDelete: 'CASCADE'
+  });
+  TestElementResult.belongsTo(ChemicalTest, { 
+    foreignKey: 'chemical_test_id', 
+    as: 'chemicalTest' 
+  });
+  console.log('  ✓ ChemicalTest <-> TestElementResult');
+}
+
+// ChemicalTest <-> MaterialInspection
+if (ChemicalTest && MaterialInspection) {
+  MaterialInspection.hasMany(ChemicalTest, { 
+    foreignKey: 'material_inspection_id', 
+    as: 'chemicalTests' 
+  });
+  ChemicalTest.belongsTo(MaterialInspection, { 
+    foreignKey: 'material_inspection_id', 
+    as: 'materialInspection' 
+  });
+  console.log('  ✓ ChemicalTest <-> MaterialInspection');
+}
+
+// ChemicalTest <-> ProductionBatch
+if (ChemicalTest && ProductionBatch) {
+  ProductionBatch.hasMany(ChemicalTest, { 
+    foreignKey: 'batch_id', 
+    as: 'chemicalTests' 
+  });
+  ChemicalTest.belongsTo(ProductionBatch, { 
+    foreignKey: 'batch_id', 
+    as: 'batch' 
+  });
+  console.log('  ✓ ChemicalTest <-> ProductionBatch');
+}
+
+// ChemicalTest <-> User (tester)
+if (ChemicalTest && User) {
+  User.hasMany(ChemicalTest, { foreignKey: 'tested_by', as: 'testedChemicalTests' });
+  ChemicalTest.belongsTo(User, { foreignKey: 'tested_by', as: 'tester' });
+  
+  User.hasMany(ChemicalTest, { foreignKey: 'reviewed_by', as: 'reviewedChemicalTests' });
+  ChemicalTest.belongsTo(User, { foreignKey: 'reviewed_by', as: 'reviewer' });
+  console.log('  ✓ ChemicalTest <-> User (tester/reviewer)');
+}
+
+// ---------------------------------------------------------
+// 6. Calibration Associations
+// ---------------------------------------------------------
 if (Instrument && CalibrationPlan) {
-    Instrument.hasOne(CalibrationPlan, { foreignKey: 'instrument_id', onDelete: 'CASCADE' });
-    CalibrationPlan.belongsTo(Instrument, { foreignKey: 'instrument_id' });
-    console.log('  ✓ Instrument <-> CalibrationPlan');
+  Instrument.hasOne(CalibrationPlan, { foreignKey: 'instrument_id', onDelete: 'CASCADE' });
+  CalibrationPlan.belongsTo(Instrument, { foreignKey: 'instrument_id' });
+  console.log('  ✓ Instrument <-> CalibrationPlan');
 }
 
 if (Instrument && CalibrationResult) {
-    Instrument.hasMany(CalibrationResult, { foreignKey: 'instrument_id' });
-    CalibrationResult.belongsTo(Instrument, { foreignKey: 'instrument_id' });
-    console.log('  ✓ Instrument <-> CalibrationResult');
+  Instrument.hasMany(CalibrationResult, { foreignKey: 'instrument_id' });
+  CalibrationResult.belongsTo(Instrument, { foreignKey: 'instrument_id' });
+  console.log('  ✓ Instrument <-> CalibrationResult');
 }
 
 if (MasterStandard && CalibrationResult) {
-    MasterStandard.hasMany(CalibrationResult, { foreignKey: 'master_standard_id' });
-    CalibrationResult.belongsTo(MasterStandard, { foreignKey: 'master_standard_id' });
-    console.log('  ✓ MasterStandard <-> CalibrationResult');
+  MasterStandard.hasMany(CalibrationResult, { foreignKey: 'master_standard_id' });
+  CalibrationResult.belongsTo(MasterStandard, { foreignKey: 'master_standard_id' });
+  console.log('  ✓ MasterStandard <-> CalibrationResult');
 }
-
 
 console.log('✅ Model setup complete');
 
 // ---------------------------------------------------------
-// 4. Export Models
+// 7. Export Models
 // ---------------------------------------------------------
-// ต้องใส่ Model ใหม่เข้าไปใน db object ด้วย! ไม่งั้น Controller จะหาไม่เจอ
-
 const db = {
   sequelize,
   Sequelize,
+  // Core Models
   User,
   MaterialInspection,
   InspectionImage,
-  PasswordResetToken,
-  // เพิ่มของใหม่ ✅
   InspectionFile,
+  PasswordResetToken,
+  // Chemical Test Models (ใหม่!)
+  ChemicalTest,
+  TestElementResult,
+  QualityStandard,
+  ProductionBatch,
+  // Calibration Models
   Instrument,
   CalibrationPlan,
   CalibrationResult,
   MasterStandard
 };
+
+// กรองค่าที่เป็น undefined ออก
+Object.keys(db).forEach(key => {
+  if (db[key] === undefined) {
+    delete db[key];
+  }
+});
 
 console.log('📦 Exported models:', Object.keys(db));
 

@@ -1,50 +1,103 @@
 // controllers/inspections/chemicalTestController.js
-const { ChemicalTest, TestElementResult, MaterialInspection, ProductionBatch, User, QualityStandard } = require('../../models');
+const { 
+  sequelize, 
+  ChemicalTest, 
+  TestElementResult, 
+  User, 
+  QualityStandard,
+  MaterialInspection,
+  ProductionBatch
+} = require('../../models');
+
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 
 const chemicalTestController = {
-  // GET /api/inspections/chemical - สำหรับ ChemicalTest Component
+
+  // ==========================================
+  // 1. GET ALL (✅ แก้ไขแล้ว - รองรับทั้ง grade/materialGrade และ result/status)
+  // ==========================================
   getAll: async (req, res) => {
     try {
-      const { page = 1, limit = 10, status, materialGrade, testType } = req.query;
+      const { 
+        page = 1, 
+        limit = 10, 
+        // ✅ รองรับทั้ง 2 ชื่อ parameter
+        status,
+        result,           // เพิ่มรองรับ result
+        materialGrade,
+        grade,            // เพิ่มรองรับ grade
+        search 
+      } = req.query;
+
       const offset = (page - 1) * limit;
       
       let whereCondition = {};
-      if (status) whereCondition.overallResult = status;
-      if (materialGrade) whereCondition.materialGrade = materialGrade;
-      if (testType) whereCondition.testType = testType;
+
+      // ✅ Grade filter - รองรับทั้ง 2 ชื่อ (ต้องทำก่อน search!)
+      const gradeFilter = materialGrade || grade;
+      if (gradeFilter && gradeFilter.toLowerCase() !== 'all' && gradeFilter !== '') {
+        whereCondition.materialGrade = gradeFilter;
+        console.log('📋 Filtering by grade:', gradeFilter);
+      }
+
+      // ✅ Status/Result filter - รองรับทั้ง 2 ชื่อ
+      const statusFilter = status || result;
+      if (statusFilter && statusFilter.toLowerCase() !== 'all' && statusFilter !== '') {
+        // รองรับทั้ง overallResult และ testResult field
+        const upperStatus = statusFilter.toUpperCase();
+        whereCondition[Op.and] = whereCondition[Op.and] || [];
+        whereCondition[Op.and].push({
+          [Op.or]: [
+            { overallResult: upperStatus },
+            { testResult: upperStatus }
+          ]
+        });
+        console.log('📋 Filtering by status/result:', upperStatus);
+      }
+      
+      // ✅ Search filter
+      if (search && search.trim()) {
+        const searchTerm = search.trim();
+        whereCondition[Op.and] = whereCondition[Op.and] || [];
+        whereCondition[Op.and].push({
+          [Op.or]: [
+            { testNumber: { [Op.iLike]: `%${searchTerm}%` } },
+            { heatNo: { [Op.iLike]: `%${searchTerm}%` } },
+            { certNo: { [Op.iLike]: `%${searchTerm}%` } },
+            { materialGrade: { [Op.iLike]: `%${searchTerm}%` } },
+            { manufacturer: { [Op.iLike]: `%${searchTerm}%` } },
+            { inspector: { [Op.iLike]: `%${searchTerm}%` } }
+          ]
+        });
+        console.log('📋 Searching for:', searchTerm);
+      }
+
+      console.log('🔍 Query params:', { page, limit, status, result, materialGrade, grade, search });
+      console.log('🔍 WHERE condition:', JSON.stringify(whereCondition, null, 2));
 
       const { count, rows: tests } = await ChemicalTest.findAndCountAll({
         where: whereCondition,
         include: [
           {
-            model: MaterialInspection,
-            as: 'materialInspection',
-            include: [{
-              model: ProductionBatch,
-              as: 'batch',
-              attributes: ['batchNumber', 'materialGrade']
-            }]
-          },
-          {
-            model: User,
-            as: 'tester',
-            attributes: ['firstName', 'lastName', 'employeeId']
-          },
-          {
-            model: User,
-            as: 'reviewer',
-            attributes: ['firstName', 'lastName', 'employeeId']
-          },
-          {
             model: TestElementResult,
-            as: 'elementResults'
+            as: 'elementResults',
+            required: false
+          },
+          {
+             model: User,
+             as: 'tester',
+             attributes: ['firstName', 'lastName'],
+             required: false
           }
         ],
         order: [['createdAt', 'DESC']],
         limit: parseInt(limit),
-        offset: offset
+        offset: offset,
+        distinct: true
       });
+
+      console.log(`✅ Found ${count} records matching filters`);
 
       res.json({
         success: true,
@@ -54,21 +107,20 @@ const chemicalTestController = {
             total: count,
             totalPages: Math.ceil(count / limit),
             currentPage: parseInt(page),
+            page: parseInt(page),  // ✅ เพิ่ม page สำหรับ frontend
             limit: parseInt(limit)
           }
         }
       });
     } catch (error) {
       console.error('Get chemical tests error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch chemical tests',
-        error: error.message
-      });
+      res.status(500).json({ success: false, message: 'Failed to fetch chemical tests', error: error.message });
     }
   },
 
-  // GET /api/inspections/chemical/:id - ดึงข้อมูลตาม ID
+  // ==========================================
+  // 2. GET BY ID
+  // ==========================================
   getById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -76,267 +128,307 @@ const chemicalTestController = {
       const test = await ChemicalTest.findByPk(id, {
         include: [
           {
-            model: MaterialInspection,
-            as: 'materialInspection',
-            include: [{
-              model: ProductionBatch,
-              as: 'batch',
-              attributes: ['batchNumber', 'materialGrade']
-            }]
+            model: TestElementResult,
+            as: 'elementResults'
           },
           {
             model: User,
             as: 'tester',
-            attributes: ['firstName', 'lastName', 'employeeId']
+            attributes: ['firstName', 'lastName']
           },
           {
             model: User,
             as: 'reviewer',
-            attributes: ['firstName', 'lastName', 'employeeId']
-          },
-          {
-            model: TestElementResult,
-            as: 'elementResults'
+            attributes: ['firstName', 'lastName']
           }
         ]
       });
 
       if (!test) {
-        return res.status(404).json({
-          success: false,
-          message: 'Chemical test not found'
-        });
+        return res.status(404).json({ success: false, message: 'Chemical test not found' });
       }
 
-      res.json({
-        success: true,
-        data: test
-      });
+      res.json({ success: true, data: test });
     } catch (error) {
       console.error('Get chemical test by ID error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch chemical test',
-        error: error.message
-      });
+      res.status(500).json({ success: false, message: 'Failed to fetch chemical test', error: error.message });
     }
   },
 
-  // POST /api/inspections/chemical - สร้างการทดสอบเคมีใหม่
+  // ==========================================
+  // 3. CREATE
+  // ==========================================
   create: async (req, res) => {
+    const t = await sequelize.transaction();
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: errors.array()
-        });
+        await t.rollback();
+        return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
       }
 
-      const { elementResults, ...testData } = req.body;
+      const { elementResults, testValues, ...testData } = req.body;
 
-      // Generate test number
-      const count = await ChemicalTest.count();
-      testData.testNumber = `CT${new Date().getFullYear()}${String(count + 1).padStart(6, '0')}`;
-      testData.testedBy = req.user.id;
+      const count = await ChemicalTest.count({ transaction: t });
+      const year = new Date().getFullYear();
+      testData.testNumber = `CT${year}${String(count + 1).padStart(6, '0')}`;
+      
+      testData.testedBy = req.user ? req.user.id : null;
       testData.testedAt = new Date();
+      
+      if (testValues) testData.testValues = testValues;
 
-      // สร้างการทดสอบเคมี
-      const chemicalTest = await ChemicalTest.create(testData);
+      const chemicalTest = await ChemicalTest.create(testData, { transaction: t });
 
-      // สร้างผลการทดสอบองค์ประกอบ
       if (elementResults && elementResults.length > 0) {
         const elementsData = elementResults.map(element => ({
           ...element,
           chemicalTestId: chemicalTest.id
         }));
         
-        await TestElementResult.bulkCreate(elementsData);
-
-        // ตรวจสอบผลรวม
-        await chemicalTestController.evaluateTestResults(chemicalTest.id, testData.materialGrade);
+        await TestElementResult.bulkCreate(elementsData, { transaction: t });
+        
+        await chemicalTestController.evaluateTestResults(chemicalTest.id, testData.materialGrade, t);
       }
 
+      await t.commit();
+
       const createdTest = await ChemicalTest.findByPk(chemicalTest.id, {
-        include: [
-          {
-            model: TestElementResult,
-            as: 'elementResults'
-          },
-          {
-            model: User,
-            as: 'tester',
-            attributes: ['firstName', 'lastName']
-          }
-        ]
+        include: [{ model: TestElementResult, as: 'elementResults' }]
       });
 
-      res.status(201).json({
-        success: true,
-        data: createdTest,
-        message: 'Chemical test created successfully'
-      });
+      res.status(201).json({ success: true, data: createdTest, message: 'Chemical test created successfully' });
+
     } catch (error) {
+      await t.rollback();
       console.error('Create chemical test error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create chemical test',
-        error: error.message
-      });
+      res.status(500).json({ success: false, message: 'Failed to create chemical test', error: error.message });
     }
   },
 
-  // ✅ PUT /api/inspections/chemical/:id - อัพเดทข้อมูล
+  // ==========================================
+  // 4. UPDATE
+  // ==========================================
   update: async (req, res) => {
+    const t = await sequelize.transaction();
     try {
       const { id } = req.params;
-      const { elementResults, ...updateData } = req.body;
+      const { elementResults, testValues, ...updateData } = req.body;
 
-      // ตรวจสอบว่ามีข้อมูลอยู่หรือไม่
       const existingTest = await ChemicalTest.findByPk(id);
       if (!existingTest) {
-        return res.status(404).json({
-          success: false,
-          message: 'Chemical test not found'
-        });
+        await t.rollback();
+        return res.status(404).json({ success: false, message: 'Chemical test not found' });
       }
 
-      // ตรวจสอบว่าถูก approve แล้วหรือยัง (ถ้า approve แล้วอาจไม่ให้แก้ไข)
       if (existingTest.approvedAt) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot update approved test. Please contact administrator.'
-        });
+        await t.rollback();
+        return res.status(400).json({ success: false, message: 'Cannot update approved test.' });
       }
 
-      // อัพเดทข้อมูลหลัก
+      if (testValues) updateData.testValues = testValues;
+
       await existingTest.update({
         ...updateData,
         updatedAt: new Date()
-      });
+      }, { transaction: t });
 
-      // ถ้ามีการส่ง elementResults มาด้วย ให้อัพเดท
       if (elementResults && elementResults.length > 0) {
-        // ลบ element results เดิม
         await TestElementResult.destroy({
-          where: { chemicalTestId: id }
+          where: { chemicalTestId: id },
+          transaction: t
         });
 
-        // สร้างใหม่
         const elementsData = elementResults.map(element => ({
           ...element,
           chemicalTestId: id
         }));
         
-        await TestElementResult.bulkCreate(elementsData);
-
-        // ประเมินผลใหม่
-        await chemicalTestController.evaluateTestResults(id, updateData.materialGrade || existingTest.materialGrade);
+        await TestElementResult.bulkCreate(elementsData, { transaction: t });
+        
+        await chemicalTestController.evaluateTestResults(id, updateData.materialGrade || existingTest.materialGrade, t);
       }
 
-      // ดึงข้อมูลที่อัพเดทแล้ว
+      await t.commit();
+
       const updatedTest = await ChemicalTest.findByPk(id, {
-        include: [
-          {
-            model: TestElementResult,
-            as: 'elementResults'
-          },
-          {
-            model: User,
-            as: 'tester',
-            attributes: ['firstName', 'lastName']
-          }
-        ]
+        include: [{ model: TestElementResult, as: 'elementResults' }]
       });
 
-      res.json({
-        success: true,
-        data: updatedTest,
-        message: 'Chemical test updated successfully'
-      });
+      res.json({ success: true, data: updatedTest, message: 'Chemical test updated successfully' });
+
     } catch (error) {
+      await t.rollback();
       console.error('Update chemical test error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update chemical test',
-        error: error.message
-      });
+      res.status(500).json({ success: false, message: 'Failed to update chemical test', error: error.message });
     }
   },
 
-  // ✅ DELETE /api/inspections/chemical/:id - ลบข้อมูล
+  // ==========================================
+  // 5. DELETE
+  // ==========================================
   delete: async (req, res) => {
+    const t = await sequelize.transaction();
     try {
       const { id } = req.params;
 
-      // ตรวจสอบว่ามีข้อมูลอยู่หรือไม่
       const existingTest = await ChemicalTest.findByPk(id);
       if (!existingTest) {
-        return res.status(404).json({
-          success: false,
-          message: 'Chemical test not found'
-        });
+        await t.rollback();
+        return res.status(404).json({ success: false, message: 'Chemical test not found' });
       }
 
-      // ตรวจสอบว่าถูก approve แล้วหรือยัง
       if (existingTest.approvedAt) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot delete approved test. Please contact administrator.'
-        });
+        await t.rollback();
+        return res.status(400).json({ success: false, message: 'Cannot delete approved test.' });
       }
 
-      // ลบ element results ก่อน (Foreign Key)
       await TestElementResult.destroy({
-        where: { chemicalTestId: id }
+        where: { chemicalTestId: id },
+        transaction: t
       });
 
-      // ลบ chemical test
-      await existingTest.destroy();
+      await existingTest.destroy({ transaction: t });
+
+      await t.commit();
+
+      res.json({ success: true, message: 'Chemical test deleted successfully' });
+
+    } catch (error) {
+      await t.rollback();
+      console.error('Delete chemical test error:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete chemical test', error: error.message });
+    }
+  },
+
+  // ==========================================
+  // 6. STATS (✅ เพิ่มใหม่ - แก้ Error 500)
+  // ==========================================
+  getStats: async (req, res) => {
+    try {
+      let total = 0, passed = 0, failed = 0, pending = 0;
+
+      try {
+        total = await ChemicalTest.count() || 0;
+      } catch (e) {
+        console.warn('Count total failed:', e.message);
+      }
+
+      try {
+        // รองรับทั้ง overallResult และ testResult
+        passed = await ChemicalTest.count({ 
+          where: { 
+            [Op.or]: [
+              { overallResult: 'PASS' },
+              { overallResult: 'pass' },
+              { testResult: 'PASS' },
+              { testResult: 'pass' }
+            ]
+          } 
+        }) || 0;
+      } catch (e) {
+        console.warn('Count passed failed:', e.message);
+      }
+
+      try {
+        failed = await ChemicalTest.count({ 
+          where: { 
+            [Op.or]: [
+              { overallResult: 'FAIL' },
+              { overallResult: 'fail' },
+              { testResult: 'FAIL' },
+              { testResult: 'fail' }
+            ]
+          } 
+        }) || 0;
+      } catch (e) {
+        console.warn('Count failed failed:', e.message);
+      }
+
+      try {
+        pending = await ChemicalTest.count({ 
+          where: { 
+            [Op.or]: [
+              { overallResult: 'PENDING' },
+              { overallResult: 'pending' },
+              { overallResult: null },
+              { testResult: 'PENDING' },
+              { testResult: 'pending' },
+              { testResult: null }
+            ]
+          } 
+        }) || 0;
+      } catch (e) {
+        console.warn('Count pending failed:', e.message);
+      }
+
+      console.log('📊 Stats:', { total, passed, failed, pending });
 
       res.json({
         success: true,
-        message: 'Chemical test deleted successfully'
+        total,
+        passed,
+        failed,
+        pending,
+        passRate: total > 0 ? ((passed / total) * 100).toFixed(2) : 0
       });
+
     } catch (error) {
-      console.error('Delete chemical test error:', error);
-      res.status(500).json({
+      console.error('getStats Error:', error);
+      // ส่ง default values แทน error
+      res.json({
         success: false,
-        message: 'Failed to delete chemical test',
-        error: error.message
+        total: 0,
+        passed: 0,
+        failed: 0,
+        pending: 0,
+        passRate: 0,
+        message: error.message
       });
     }
   },
 
-  // ฟังก์ชันประเมินผลการทดสอบ
-  evaluateTestResults: async (testId, materialGrade) => {
+  // ==========================================
+  // 7. LOGIC EVALUATE
+  // ==========================================
+  evaluateTestResults: async (testId, materialGrade, transaction = null) => {
     try {
       const elementResults = await TestElementResult.findAll({
-        where: { chemicalTestId: testId }
+        where: { chemicalTestId: testId },
+        transaction 
       });
 
-      // ดึงมาตรฐานคุณภาพ
       const standards = await QualityStandard.findAll({
         where: {
           materialGrade: materialGrade,
           processStage: 'chemical_test'
-        }
+        },
+        transaction
       });
 
       let overallResult = 'pass';
 
-      // ตรวจสอบแต่ละองค์ประกอบ
+      const symbolMap = { 'c': 'carbon', 'si': 'silicon', 'mn': 'manganese', 'p': 'phosphorus', 's': 'sulfur', 'cu': 'copper', 'ni': 'nickel', 'cr': 'chromium', 'mo': 'molybdenum' };
+
       for (const element of elementResults) {
-        const standard = standards.find(s => 
-          s.parameterName.toLowerCase().includes(element.elementSymbol.toLowerCase())
-        );
+        const standard = standards.find(s => {
+            const dbParamName = s.parameterName.toLowerCase().trim();
+            const inputSymbol = element.elementSymbol.toLowerCase().trim();
+            
+            if (dbParamName === inputSymbol) return true;
+            if (symbolMap[inputSymbol] && dbParamName.includes(symbolMap[inputSymbol])) return true;
+            
+            const regex = new RegExp(`\\b${inputSymbol}\\b`, 'i');
+            return regex.test(dbParamName);
+        });
 
         if (standard) {
           let result = 'pass';
-          
-          if (element.measuredValue < standard.minValue || 
-              element.measuredValue > standard.maxValue) {
+          const val = parseFloat(element.measuredValue);
+          const min = parseFloat(standard.minValue);
+          const max = parseFloat(standard.maxValue);
+
+          if ((!isNaN(min) && val < min) || (!isNaN(max) && val > max)) {
             result = 'fail';
             overallResult = 'fail';
           }
@@ -345,14 +437,13 @@ const chemicalTestController = {
             result,
             specificationMin: standard.minValue,
             specificationMax: standard.maxValue
-          });
+          }, { transaction });
         }
       }
 
-      // อัพเดทผลรวม
       await ChemicalTest.update(
         { overallResult },
-        { where: { id: testId } }
+        { where: { id: testId }, transaction }
       );
 
       return overallResult;
@@ -362,19 +453,16 @@ const chemicalTestController = {
     }
   },
 
-  // PUT /api/inspections/chemical/:id/approve
+  // ==========================================
+  // 8. APPROVE
+  // ==========================================
   approve: async (req, res) => {
     try {
       const { id } = req.params;
       const { notes } = req.body;
 
       const test = await ChemicalTest.findByPk(id);
-      if (!test) {
-        return res.status(404).json({
-          success: false,
-          message: 'Chemical test not found'
-        });
-      }
+      if (!test) return res.status(404).json({ success: false, message: 'Chemical test not found' });
 
       await test.update({
         approvedBy: req.user.id,
@@ -382,17 +470,10 @@ const chemicalTestController = {
         notes: notes || test.notes
       });
 
-      res.json({
-        success: true,
-        message: 'Chemical test approved successfully'
-      });
+      res.json({ success: true, message: 'Chemical test approved successfully' });
     } catch (error) {
       console.error('Approve chemical test error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to approve chemical test',
-        error: error.message
-      });
+      res.status(500).json({ success: false, message: 'Failed to approve chemical test', error: error.message });
     }
   }
 };

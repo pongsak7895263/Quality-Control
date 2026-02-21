@@ -5,30 +5,34 @@ const fs = require("fs");
 // กำหนด Storage config
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = "uploads/"; // Default path
+    let folder = "uploads/"; // Default path
 
     // แยกโฟลเดอร์ตามประเภทไฟล์
     if (file.mimetype === "application/pdf") {
-      uploadPath = "uploads/pdfs/";
+      folder = "uploads/pdfs/";
     } else if (file.mimetype.startsWith("image/")) {
-      uploadPath = "uploads/images/";
+      folder = "uploads/images/";
     }
 
-    // ✅ FIX: สร้างโฟลเดอร์อัตโนมัติถ้ายังไม่มี (Recursive)
-    const fullPath = path.join(__dirname, "../", uploadPath);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
+    // ✅ แก้ไข: ใช้ process.cwd() เพื่ออ้างอิงจาก Root Project เสมอ
+    // วิธีนี้จะสร้างโฟลเดอร์ uploads ไว้ระดับเดียวกับ package.json (ไม่อยู่ใน src)
+    const absolutePath = path.join(process.cwd(), folder);
+
+    // สร้างโฟลเดอร์ถ้ายังไม่มี
+    if (!fs.existsSync(absolutePath)) {
+      fs.mkdirSync(absolutePath, { recursive: true });
     }
 
-    cb(null, uploadPath);
+    // ส่ง Relative path ให้ Multer (มันจะเซฟลง Root/uploads/...)
+    cb(null, folder);
   },
   filename: function (req, file, cb) {
-    // ตั้งชื่อไฟล์: fieldname-timestamp.นามสกุล
+    // ตั้งชื่อไฟล์ใหม่ (ใช้ Timestamp + Random)
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-    );
+    // ดึงนามสกุลไฟล์เดิม
+    const ext = path.extname(file.originalname);
+    
+    cb(null, uniqueSuffix + ext); 
   },
 });
 
@@ -38,7 +42,10 @@ const fileFilter = (req, file, cb) => {
     "image/jpeg",
     "image/png",
     "image/jpg",
+    "image/webp", // แนะนำให้เพิ่ม
     "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel"
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
@@ -48,11 +55,10 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// กำหนดขนาดไฟล์สูงสุด (เช่น 10MB)
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 1024 * 1024 * 10, // 10 MB
+    fileSize: 10 * 1024 * 1024, // 10 MB
   },
   fileFilter: fileFilter,
 });

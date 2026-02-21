@@ -37,7 +37,7 @@ const MENU_GROUPS = [
     {
         title: "Management & Standards",
         items: [
-            { path: "/reports/data-KPI", name: "KPI Monitoring", icon: faChartLine },
+            { path: "/Kpimonitoring/KPIDashboard", name: "KPI Monitoring", icon: faChartLine },
             { path: "/Calibrations", name: "Calibration (สอบเทียบ)", icon: faBalanceScale },
             { path: "/msa", name: "MSA (ระบบวัด)", icon: faRulerCombined }, 
             { path: "/inspections/doc", name: "Documents (ISO/IATF)", icon: faFileContract },

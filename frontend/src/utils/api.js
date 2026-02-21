@@ -1,13 +1,18 @@
-// utils/api.js - Enhanced API Client with New Endpoints
+// utils/api.js - Enhanced API Client with KPI Endpoints
+// ✅ เพิ่ม: get/post/patch helpers + KPI Good/Scrap Management APIs
 import React, { useState, useCallback } from 'react';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.0.26:5000';
 
 class APIClient {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    // ✅ ต่อ /api ให้อัตโนมัติ ถ้า .env ไม่ได้ใส่มา
+    const raw = API_BASE_URL.replace(/\/+$/, ''); // ลบ trailing slash
+    this.baseURL = raw.endsWith('/api') ? raw : `${raw}/api`;
     this.token = localStorage.getItem('authToken');
   }
+
+  // ─── Core Request (เดิม — ไม่แก้) ───────────────────────────
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const config = {
@@ -34,16 +39,154 @@ class APIClient {
     }
   }
 
-  // Material Inspections - Enhanced
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ NEW: HTTP Helper Methods (ใช้โดย KPIDashboard.js)
+  // ═══════════════════════════════════════════════════════════════
+
+  async get(endpoint, { params = {} } = {}) {
+    const filtered = Object.entries(params).filter(([_, v]) => v != null && v !== '' && v !== undefined);
+    const qs = filtered.length > 0 ? '?' + new URLSearchParams(filtered).toString() : '';
+    return this.request(`${endpoint}${qs}`);
+  }
+
+  async post(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async patch(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ NEW: KPI Good/Scrap Management APIs
+  // ═══════════════════════════════════════════════════════════════
+
+  // Dashboard ภาพรวม
+  async getKPIDashboard(params = {}) {
+    return this.get('/kpi/dashboard', { params });
+  }
+
+  // KPI Values (PPM + %)
+  async getKPIValues(params = {}) {
+    return this.get('/kpi/values', { params });
+  }
+
+  // Trend 12 เดือน
+  async getKPITrends(params = {}) {
+    return this.get('/kpi/trends', { params });
+  }
+
+  // Pareto วิเคราะห์ข้อบกพร่อง
+  async getKPIPareto(params = {}) {
+    return this.get('/kpi/pareto', { params });
+  }
+
+  // Master data (เครื่อง, defect codes, สายผลิต, targets)
+  async getKPIMasterData() {
+    return this.request('/kpi/master');
+  }
+
+  // บันทึกผลตรวจสอบ
+  async createKPIEntry(data) {
+    return this.request('/kpi/entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ดึงรายการตรวจสอบ
+  async getKPIEntries(params = {}) {
+    return this.get('/kpi/entries', { params });
+  }
+
+  // Andon alerts
+  async getAndonAlerts(params = {}) {
+    return this.get('/kpi/andon', { params });
+  }
+
+  async acknowledgeAndon(id, data) {
+    return this.request(`/kpi/andon/${id}/acknowledge`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resolveAndon(id, data) {
+    return this.request(`/kpi/andon/${id}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Machine status
+  async getMachineStatus() {
+    return this.request('/kpi/machines/status');
+  }
+
+  // Customer Claims
+  async createClaim(data) {
+    return this.request('/kpi/claims', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getClaims(params = {}) {
+    return this.get('/kpi/claims', { params });
+  }
+
+  // Action Plans (CAPA)
+  async createActionPlan(data) {
+    return this.request('/kpi/actions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getActionPlans(params = {}) {
+    return this.get('/kpi/actions', { params });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // KPI เดิมที่มีอยู่แล้ว (ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
+  async getKPICategories() {
+    return this.request('/kpi/categories');
+  }
+
+  async getKPIProducts() {
+    return this.request('/kpi/products');
+  }
+
+  async saveDailyLog(data) {
+    return this.request('/kpi/daily-logs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getKPISummaryMonthly() {
+    return this.request('/kpi/summary-monthly');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Material Inspections (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async getMaterialInspections(filters = {}) {
     const queryParams = new URLSearchParams();
-    
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
         queryParams.append(key, value);
       }
     });
-
     return this.request(`/Materialinspections?${queryParams.toString()}`);
   }
 
@@ -71,25 +214,17 @@ class APIClient {
     });
   }
 
-  // Quick Create
   async quickCreateInspection(data) {
     return this.request('/Materialinspections/quick-create', {
       method: 'POST',
-      body: JSON.stringify({
-        ...data,
-        creationMethod: 'quick'
-      }),
+      body: JSON.stringify({ ...data, creationMethod: 'quick' }),
     });
   }
 
-  // Bulk Import
   async bulkImportInspections(formData) {
     return this.request('/Materialinspections/bulk-import', {
       method: 'POST',
-      headers: {
-        // Remove Content-Type to let browser set it with boundary for FormData
-        'Content-Type': undefined,
-      },
+      headers: { 'Content-Type': undefined },
       body: formData,
     });
   }
@@ -97,14 +232,15 @@ class APIClient {
   async validateImportFile(formData) {
     return this.request('/Materialinspections/validate-import', {
       method: 'POST',
-      headers: {
-        'Content-Type': undefined,
-      },
+      headers: { 'Content-Type': undefined },
       body: formData,
     });
   }
 
-  // Templates
+  // ═══════════════════════════════════════════════════════════════
+  // Templates (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async getInspectionTemplates() {
     return this.request('/inspection-templates');
   }
@@ -136,27 +272,21 @@ class APIClient {
   async createFromTemplate(templateId, data) {
     return this.request('/material-inspections/from-template', {
       method: 'POST',
-      body: JSON.stringify({
-        templateId,
-        ...data,
-        creationMethod: 'template'
-      }),
+      body: JSON.stringify({ templateId, ...data, creationMethod: 'template' }),
     });
   }
 
-  // Duplicate
   async duplicateInspection(originalId, data) {
     return this.request('/material-inspections/duplicate', {
       method: 'POST',
-      body: JSON.stringify({
-        originalInspectionId: originalId,
-        ...data,
-        creationMethod: 'duplicate'
-      }),
+      body: JSON.stringify({ originalInspectionId: originalId, ...data, creationMethod: 'duplicate' }),
     });
   }
 
-  // Specifications
+  // ═══════════════════════════════════════════════════════════════
+  // Specifications (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async getInspectionSpecs() {
     return this.request('/inspection-specs');
   }
@@ -172,7 +302,10 @@ class APIClient {
     return this.request(`/inspection-specs/material-type/${materialType}`);
   }
 
-  // Approval & Rejection
+  // ═══════════════════════════════════════════════════════════════
+  // Approval & Rejection (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async approveMaterialInspection(id, data) {
     return this.request(`/material-inspections/${id}/approve`, {
       method: 'POST',
@@ -187,16 +320,17 @@ class APIClient {
     });
   }
 
-  // Statistics & Dashboard
+  // ═══════════════════════════════════════════════════════════════
+  // Statistics & Dashboard (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async getMaterialInspectionStats(filters = {}) {
     const queryParams = new URLSearchParams();
-    
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
         queryParams.append(key, value);
       }
     });
-
     return this.request(`/material-inspections/stats?${queryParams.toString()}`);
   }
 
@@ -204,129 +338,60 @@ class APIClient {
     return this.request(`/dashboard/material-inspections?range=${dateRange}`);
   }
 
-  // Reports & Export
+  // ═══════════════════════════════════════════════════════════════
+  // Reports & Export (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async generateInspectionPDF(id) {
-    return this.request(`/material-inspections/${id}/pdf`, {
-      method: 'POST',
-    });
+    return this.request(`/material-inspections/${id}/pdf`, { method: 'POST' });
   }
 
   async exportInspections(filters = {}, format = 'excel') {
     const queryParams = new URLSearchParams();
-    
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
         queryParams.append(key, value);
       }
     });
-
     queryParams.append('format', format);
-
-    return this.request(`/material-inspections/export?${queryParams.toString()}`, {
-      method: 'POST',
-    });
+    return this.request(`/material-inspections/export?${queryParams.toString()}`, { method: 'POST' });
   }
 
-  // File Upload
+  // ═══════════════════════════════════════════════════════════════
+  // File, Suppliers, Grades, Inspectors, etc (เดิม — ไม่แก้)
+  // ═══════════════════════════════════════════════════════════════
+
   async uploadFile(file, type = 'inspection') {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
-
-    return this.request('/files/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': undefined,
-      },
-      body: formData,
-    });
+    return this.request('/files/upload', { method: 'POST', headers: { 'Content-Type': undefined }, body: formData });
   }
 
-  async deleteFile(fileId) {
-    return this.request(`/files/${fileId}`, {
-      method: 'DELETE',
-    });
-  }
+  async deleteFile(fileId) { return this.request(`/files/${fileId}`, { method: 'DELETE' }); }
+  async getSuppliers() { return this.request('/suppliers'); }
+  async createSupplier(data) { return this.request('/suppliers', { method: 'POST', body: JSON.stringify(data) }); }
+  async getMaterialGrades() { return this.request('/material-grades'); }
+  async createMaterialGrade(data) { return this.request('/material-grades', { method: 'POST', body: JSON.stringify(data) }); }
+  async getInspectors() { return this.request('/inspectors'); }
+  async getInspectorById(id) { return this.request(`/inspectors/${id}`); }
 
-  // Suppliers
-  async getSuppliers() {
-    return this.request('/suppliers');
-  }
+  async searchSuppliers(query) { return this.request(`/suppliers/search?q=${encodeURIComponent(query)}`); }
+  async searchMaterialGrades(query) { return this.request(`/material-grades/search?q=${encodeURIComponent(query)}`); }
+  async searchLotNumbers(query) { return this.request(`/lot-numbers/search?q=${encodeURIComponent(query)}`); }
 
-  async createSupplier(data) {
-    return this.request('/suppliers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
+  async getSystemSettings() { return this.request('/settings'); }
+  async updateSystemSettings(settings) { return this.request('/settings', { method: 'PUT', body: JSON.stringify(settings) }); }
+  async getNotifications() { return this.request('/notifications'); }
+  async markNotificationRead(id) { return this.request(`/notifications/${id}/read`, { method: 'POST' }); }
 
-  // Material Grades
-  async getMaterialGrades() {
-    return this.request('/material-grades');
-  }
-
-  async createMaterialGrade(data) {
-    return this.request('/material-grades', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // Inspectors
-  async getInspectors() {
-    return this.request('/inspectors');
-  }
-
-  async getInspectorById(id) {
-    return this.request(`/inspectors/${id}`);
-  }
-
-  // Auto-complete & Search
-  async searchSuppliers(query) {
-    return this.request(`/suppliers/search?q=${encodeURIComponent(query)}`);
-  }
-
-  async searchMaterialGrades(query) {
-    return this.request(`/material-grades/search?q=${encodeURIComponent(query)}`);
-  }
-
-  async searchLotNumbers(query) {
-    return this.request(`/lot-numbers/search?q=${encodeURIComponent(query)}`);
-  }
-
-  // System Settings
-  async getSystemSettings() {
-    return this.request('/settings');
-  }
-
-  async updateSystemSettings(settings) {
-    return this.request('/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings),
-    });
-  }
-
-  // Notifications
-  async getNotifications() {
-    return this.request('/notifications');
-  }
-
-  async markNotificationRead(id) {
-    return this.request(`/notifications/${id}/read`, {
-      method: 'POST',
-    });
-  }
-
-  // Audit Log
   async getAuditLog(filters = {}) {
     const queryParams = new URLSearchParams();
-    
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
         queryParams.append(key, value);
       }
     });
-
     return this.request(`/audit-log?${queryParams.toString()}`);
   }
 }
@@ -353,7 +418,6 @@ export const useAPI = () => {
   const makeRequest = useCallback(async (apiCall) => {
     setLoading(true);
     setError(null);
-    
     try {
       const result = await apiCall();
       return result;
@@ -367,166 +431,3 @@ export const useAPI = () => {
 
   return { makeRequest, loading, error };
 };
-
-// Backend API Routes Documentation
-/*
-Required Backend Routes:
-
-POST   /api/auth/login
-POST   /api/auth/logout
-GET    /api/auth/me
-
-GET    /api/material-inspections
-POST   /api/material-inspections
-GET    /api/material-inspections/:id
-PUT    /api/material-inspections/:id
-DELETE /api/material-inspections/:id
-POST   /api/material-inspections/quick-create
-POST   /api/material-inspections/bulk-import
-POST   /api/material-inspections/validate-import
-POST   /api/material-inspections/from-template
-POST   /api/material-inspections/duplicate
-POST   /api/material-inspections/:id/approve
-POST   /api/material-inspections/:id/reject
-POST   /api/material-inspections/:id/pdf
-POST   /api/material-inspections/export
-GET    /api/material-inspections/stats
-
-GET    /api/inspection-templates
-POST   /api/inspection-templates
-GET    /api/inspection-templates/:id
-PUT    /api/inspection-templates/:id
-DELETE /api/inspection-templates/:id
-
-GET    /api/inspection-specs
-POST   /api/inspection-specs
-GET    /api/inspection-specs/material-type/:type
-
-GET    /api/suppliers
-POST   /api/suppliers
-GET    /api/suppliers/search
-
-GET    /api/material-grades
-POST   /api/material-grades
-GET    /api/material-grades/search
-
-GET    /api/inspectors
-GET    /api/inspectors/:id
-
-POST   /api/files/upload
-DELETE /api/files/:id
-
-GET    /api/dashboard/material-inspections
-GET    /api/notifications
-POST   /api/notifications/:id/read
-GET    /api/audit-log
-GET    /api/settings
-PUT    /api/settings
-
-Database Schema Requirements:
-
-material_inspections:
-- id (primary key)
-- inspection_number (unique)
-- lot_number
-- batch_number
-- material_type (enum: steel_bar, steel_pipe, hardened_work)
-- material_grade
-- supplier_name
-- supplier_id (foreign key)
-- received_quantity
-- received_date
-- measurements (json)
-- inspection_specs (json)
-- calculated_results (json)
-- overall_result (enum: pass, fail, pending)
-- status (enum: pending, approved, rejected)
-- inspector_id (foreign key)
-- approver_id (foreign key)
-- creation_method (enum: single, quick, bulk, template, duplicate)
-- template_id (foreign key, nullable)
-- original_inspection_id (foreign key, nullable)
-- notes
-- inspector_notes
-- approval_notes
-- rejection_notes
-- created_at
-- updated_at
-- inspected_at
-- approved_at
-- rejected_at
-
-inspection_templates:
-- id (primary key)
-- name
-- material_type
-- material_grade
-- specs (json)
-- description
-- created_by (foreign key)
-- created_at
-- updated_at
-
-inspection_specs:
-- id (primary key)
-- material_type
-- specs (json)
-- created_by (foreign key)
-- created_at
-- updated_at
-
-suppliers:
-- id (primary key)
-- name
-- contact_person
-- email
-- phone
-- address
-- rating
-- created_at
-- updated_at
-
-material_grades:
-- id (primary key)
-- code
-- name
-- description
-- material_type
-- created_at
-- updated_at
-
-users (inspectors):
-- id (primary key)
-- username
-- email
-- first_name
-- last_name
-- role
-- permissions (json)
-- certification
-- created_at
-- updated_at
-
-files:
-- id (primary key)
-- filename
-- original_name
-- mime_type
-- size
-- path
-- inspection_id (foreign key)
-- uploaded_by (foreign key)
-- created_at
-
-audit_logs:
-- id (primary key)
-- entity_type
-- entity_id
-- action
-- old_values (json)
-- new_values (json)
-- user_id (foreign key)
-- ip_address
-- user_agent
-- created_at
-*/

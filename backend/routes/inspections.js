@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
-const materialInspectionController = require("../controllers/inspections/materialInspectionController");
+const materialInspectionController = require("../controllers/inspections/XXmaterialInspectionController");
 const chemicalTestController = require("../controllers/inspections/chemicalTestController");
 const billetInspectionController = require("../controllers/inspections/billetInspectionController");
 const finalInspectionController = require("../controllers/inspections/finalInspectionController");

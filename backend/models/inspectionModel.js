@@ -1,6 +1,9 @@
+// models/inspectionModel.js
 const { Op } = require("sequelize");
 const db = require("./index"); 
 const MaterialInspection = db.MaterialInspection;
+// ✅ 1. เพิ่มบรรทัดนี้: เรียกใช้ Model ไฟล์
+const InspectionFile = db.InspectionFile; 
 
 if (!MaterialInspection) {
   throw new Error("MaterialInspection model not found.");
@@ -23,13 +26,22 @@ exports.getAllInspections = async (filters) => {
     if (receiptDate) where.receiptDate = receiptDate;
     if (materialGrade) where.materialGrade = materialGrade;
     if (cerNumber) where.cerNumber = { [Op.iLike]: `%${cerNumber}%` };
-//Query
+
+    // Query
     const { count, rows } = await MaterialInspection.findAndCountAll({
       where,
       limit,
       offset,
-      // ✅ แก้ไขจุดนี้: ใช้ชื่อคอลัมน์จริงใน DB (created_at)
       order: [["created_at", "DESC"]], 
+      // ✅ 2. เพิ่ม include เพื่อดึงไฟล์มาแสดงที่ Frontend
+      include: [
+        {
+          model: InspectionFile,
+          as: "attached_files", // ชื่อต้องตรงกับ models/index.js
+          attributes: ["file_path", "original_name", "file_type"]
+        }
+      ],
+      distinct: true // ✅ จำเป็นมาก เพื่อให้นับหน้า Pagination ถูกต้องเมื่อมี JOIN
     });
 
     const plainRows = rows.map((row) => row.get({ plain: true }));
@@ -49,7 +61,7 @@ exports.getAllInspections = async (filters) => {
   }
 };
 
-// ... (ส่วนอื่นๆ getStats, create, update, delete เหมือนเดิมเป๊ะครับ ไม่ต้องแก้) ...
+// ... getStats (เหมือนเดิม) ...
 exports.getInspectionStats = async () => {
     const total = await MaterialInspection.count();
     const passCount = await MaterialInspection.count({ where: { overallResult: "pass" } });
@@ -65,27 +77,52 @@ exports.createInspection = async (data) => {
     const nextId = lastRecord ? lastRecord.id + 1 : 1;
     const inspectionNumber = `MI-${year}-${String(nextId).padStart(5, "0")}`;
 
-    const newInspection = await MaterialInspection.create({
-      inspectionNumber: inspectionNumber,
-      materialType: data.material_type || data.materialType,
-      materialGrade: data.material_grade || data.materialGrade,
-      batchNumber: data.batch_number || data.batchNumber,
-      supplierName: data.supplier_name || data.supplierName,
-      makerMat: data.maker_mat || data.makerMat,
-      receiptDate: data.receipt_date || data.receiptDate,
-      invoiceNumber: data.invoice_number || data.invoiceNumber,
-      cerNumber: data.cer_number || data.cerNumber,
-      inspector: data.inspector,
-      inspectionQuantity: data.inspection_quantity || data.inspectionQuantity,
-      notes: data.notes,
-      overallResult: data.overall_result || data.overallResult,
-      barInspections: data.bar_inspections || data.barInspections,
-      rodInspections: data.rod_inspections || data.rodInspections,
-      imagePaths: data.image_paths || [],
-      userId: data.user_id || data.userId,
-      inspectorId: data.inspector_id || data.inspectorId
-    });
-    return newInspection.get({ plain: true });
+    // ✅ ใช้ Transaction เพื่อความปลอดภัย (ถ้า Save ไฟล์พัง ให้ Rollback ข้อมูลหลัก)
+    const t = await db.sequelize.transaction();
+
+    try {
+        const newInspection = await MaterialInspection.create({
+            inspectionNumber: inspectionNumber,
+            materialType: data.material_type || data.materialType,
+            materialGrade: data.material_grade || data.materialGrade,
+            batchNumber: data.batch_number || data.batchNumber,
+            supplierName: data.supplier_name || data.supplierName,
+            makerMat: data.maker_mat || data.makerMat,
+            receiptDate: data.receipt_date || data.receiptDate,
+            invoiceNumber: data.invoice_number || data.invoiceNumber,
+            cerNumber: data.cer_number || data.cerNumber,
+            inspector: data.inspector,
+            inspectionQuantity: data.inspection_quantity || data.inspectionQuantity,
+            notes: data.notes,
+            overallResult: data.overall_result || data.overallResult,
+            barInspections: data.bar_inspections || data.barInspections,
+            rodInspections: data.rod_inspections || data.rodInspections,
+            // imagePaths: data.image_paths || [], // อันเก่าไม่ต้องใช้แล้วก็ได้
+            userId: data.user_id || data.userId,
+            inspectorId: data.inspector_id || data.inspectorId
+        }, { transaction: t });
+
+        // ✅ 3. เพิ่ม Logic บันทึกไฟล์ลงตาราง InspectionFile
+        if (data.uploaded_files && data.uploaded_files.length > 0) {
+            if (InspectionFile) {
+                const fileRecords = data.uploaded_files.map(file => ({
+                    inspection_id: newInspection.id,
+                    file_path: file.file_path,
+                    original_name: file.original_name,
+                    file_type: file.file_type,
+                    file_size: file.file_size
+                }));
+                await InspectionFile.bulkCreate(fileRecords, { transaction: t });
+            }
+        }
+
+        await t.commit();
+        return newInspection.get({ plain: true });
+
+    } catch (error) {
+        await t.rollback(); // ย้อนกลับถ้าระบบล่มกลางทาง
+        throw error;
+    }
 };
 
 exports.updateInspection = async (id, data) => {
@@ -106,15 +143,45 @@ exports.updateInspection = async (id, data) => {
        barInspections: map("bar_inspections", "barInspections"),
        rodInspections: map("rod_inspections", "rodInspections"),
     };
-    // กรอง undefined ออก
+    
     Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
-    const [updatedRows] = await MaterialInspection.update(updateData, { where: { id } });
-    if (updatedRows > 0) return (await MaterialInspection.findByPk(id)).get({ plain: true });
-    return null;
+    // ✅ ใช้ Transaction สำหรับ Update ด้วย
+    const t = await db.sequelize.transaction();
+
+    try {
+        const [updatedRows] = await MaterialInspection.update(updateData, { where: { id }, transaction: t });
+
+        // ✅ 4. เพิ่ม Logic บันทึกไฟล์ใหม่ตอนแก้ไข (new_files)
+        if (data.new_files && data.new_files.length > 0 && InspectionFile) {
+            const newFileRecords = data.new_files.map(file => ({
+                inspection_id: id,
+                file_path: file.file_path,
+                original_name: file.original_name,
+                file_type: file.file_type,
+                file_size: file.file_size
+            }));
+            await InspectionFile.bulkCreate(newFileRecords, { transaction: t });
+        }
+
+        await t.commit();
+
+        if (updatedRows > 0 || (data.new_files && data.new_files.length > 0)) {
+            // Return ข้อมูลล่าสุดพร้อมไฟล์
+            return (await MaterialInspection.findByPk(id, {
+                include: [{ model: InspectionFile, as: "attached_files" }]
+            })).get({ plain: true });
+        }
+        return null;
+
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
 };
 
 exports.deleteInspection = async (id) => {
+    // ถ้าตั้ง onDelete: CASCADE ใน index.js แล้ว ไฟล์จะหายไปเองเมื่อลบ Inspection
     const deleted = await MaterialInspection.destroy({ where: { id } });
     return deleted > 0;
 };

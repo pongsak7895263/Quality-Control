@@ -31,7 +31,7 @@ const Header = ({ user, onLogout }) => {
                 <span className="logo-text">SRIBORISUTH INDUSTRIAL CO.,LTD</span>
             </div>
             <div className="header-title">
-                <h1>Quality Control System</h1>
+                <h2>Quality Control System</h2>
             </div>
             <div className="user-info" onClick={() => setShowUserMenu(!showUserMenu)}>
                 <div className="user-avatar" style={{ backgroundColor: getRoleColor(user?.role) }}>

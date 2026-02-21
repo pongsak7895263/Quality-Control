@@ -93,6 +93,20 @@ src/
 │   │   └── GaugeChart.js       # Gauge chart component
 │   │
 │   ├── modules/
+│   │   ├── Calibrations
+│   │   │   ├── CalibrationDashboard.jsx
+│   │   │   ├── CalibrationForm.jsx
+│   │   │   ├── CalibrationInstrumentList.jsx
+│   │   │   ├── CalibrationPlanList.jsx
+│   │   │   ├── CalibrationResultForm.jsx
+│   │   │   └── InstrumentRegister.jsx
+│   │   ├── Kpimonitoring/
+│   │   │   ├──  KPIDashboard.js
+│   │   │   ├──  product_categories.js
+│   │   │   ├── .js
+│   │   │   ├── .js
+│   │   │   ├── .js
+│   │   │   └── .js
 │   │   ├── MaterialInspection.js
 │   │   ├── ChemicalTest.js
 │   │   ├── BilletInspection.js
@@ -115,8 +129,12 @@ src/
 │   └── useDashboard.js         # Dashboard data hook
 │
 ├── utils/
+│   ├── api .js 
+│   ├── calculations.js 
+│   ├── connectionTest.js         
 │   ├── constants.js            # App constants
 │   ├── helpers.js              # Helper functions
+│   ├── standard.js  
 │   └── roleUtils.js            # Role-related utilities
 │
 ├── styles/
@@ -126,5 +144,16 @@ src/
 │   ├── charts.css
 │   └── components.css
 │
+└── App.css
+│
 └── App.js                      # Main app component
+│                      
+└── .env
+│   
+└── index.css
+│   
+└── index.js
+│   
+└── config.js
+
 ----------------------------------------------------------------

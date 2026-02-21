@@ -1,8 +1,8 @@
 :root {
   /* --- ตั้งค่าขนาด --- */
-  --sidebar-width: 480px;
+  --sidebar-width: 500px;
   /* ขยายความกว้าง Sidebar อีกนิดเพื่อให้ตัวหนังสือไม่ตกบรรทัด */
-  --sidebar-collapsed-width: 90px;
+  --sidebar-collapsed-width: 100px;
 
   /* --- ตั้งค่าสี (Theme: Blue & White) --- */
   --bg-color: #ffffff;
@@ -22,7 +22,7 @@
   --active-line: #490dee;
   /* เส้นขอบสีน้ำเงินสด */
 
-  --shadow-color: rgba(0, 51, 102, 0.15);
+  --shadow-color: rgba(47, 135, 223, 0.15);
   /* เงาสีน้ำเงินจางๆ */
   --transition-speed: 0.3s;
 }

@@ -1,29 +1,43 @@
+// models/InspectionFile.js
 module.exports = (sequelize, DataTypes) => {
-    const InspectionFile = sequelize.define("InspectionFile", {
-      filePath: { 
+  const InspectionFile = sequelize.define(
+    "InspectionFile",
+    {
+      // กำหนดชื่อ Field ให้ตรงกับ Database
+      file_path: { 
         type: DataTypes.STRING, 
-        field: 'file_path' // แมพกับชื่อ field ใน DB (snake_case)
+        field: 'file_path' // บังคับให้ map กับ column นี้
       },
-      originalName: { 
-        type: DataTypes.STRING,
-        field: 'original_name'
+      original_name: { 
+        type: DataTypes.STRING, 
+        field: 'original_name' 
       },
-      fileType: { 
-        type: DataTypes.STRING,
-        field: 'file_type'
+      file_type: { 
+        type: DataTypes.STRING, 
+        field: 'file_type' 
       },
-      fileSize: { 
-        type: DataTypes.INTEGER,
-        field: 'file_size'
+      file_size: { 
+        type: DataTypes.INTEGER, 
+        field: 'file_size' 
       },
-      inspectionId: {
+      inspection_id: {
         type: DataTypes.INTEGER,
         field: 'inspection_id'
       }
-    }, {
-      tableName: 'inspection_files',
-      underscored: true
+    },
+    {
+      tableName: "inspection_files", // ชื่อตารางใน DB
+      underscored: true,             // สำคัญ! เพื่อให้ created_at, updated_at ทำงานถูก
+      timestamps: true,
+    }
+  );
+
+  InspectionFile.associate = (models) => {
+    InspectionFile.belongsTo(models.MaterialInspection, {
+      foreignKey: "inspection_id",
+      as: "inspection",
     });
-  
-    return InspectionFile;
   };
+
+  return InspectionFile;
+};

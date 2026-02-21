@@ -3,32 +3,26 @@
 
 // Generate QR Code (you'll need to install qrcode library: npm install qrcode)
 export const generateQRCode = (data) => {
-    try {
-      // For production, use actual QR code library
-      // import QRCode from 'qrcode';
-      // return QRCode.toDataURL(JSON.stringify(data));
-      
-      // Mock QR code for development
-      const qrString = JSON.stringify(data);
-      const canvas = document.createElement('canvas');
-      canvas.width = 200;
-      canvas.height = 200;
-      const ctx = canvas.getContext('2d');
-      
-      // Simple placeholder QR code
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, 200, 200);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '12px Arial';
-      ctx.fillText('QR Code', 10, 100);
-      ctx.fillText(data.id || data.testId, 10, 120);
-      
-      return canvas.toDataURL();
-    } catch (error) {
-      console.error('Error generating QR code:', error);
-      return null;
-    }
-  };
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    
+    // placeholder QR code (สำหรับพัฒนา)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 200, 200);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '12px Arial';
+    ctx.fillText('QR Code', 10, 100);
+    ctx.fillText(data.id || data.testId || 'N/A', 10, 120);
+    
+    return canvas.toDataURL();
+  } catch (error) {
+    // เปลี่ยนจาก console.error เป็นการส่งค่า null เพื่อให้ UI จัดการต่อเอง
+    return null; 
+  }
+};
   
   // Export to PDF (you'll need to install jspdf library: npm install jspdf)
   export const exportToPDF = (data, type) => {
@@ -877,4 +871,17 @@ export const checkMeasurementConsistency = (measurements, maxDeviation = 0.1) =>
     allowedDeviation: maxDeviation,
     message: isConsistent ? 'การวัดสม่ำเสมอ' : 'การวัดไม่สม่ำเสมอ'
   };
+};
+// src/utils/calculations.js
+
+// คำนวณค่า PPM
+export const calculatePPM = (claims, totalShipped) => {
+  if (!totalShipped || totalShipped === 0) return 0;
+  return ((claims / totalShipped) * 1000000).toFixed(2);
+};
+
+// คำนวณค่า Percentage (Rework/Scrap)
+export const calculatePercent = (badQty, totalProduced) => {
+  if (!totalProduced || totalProduced === 0) return 0;
+  return ((badQty / totalProduced) * 100).toFixed(2);
 };

@@ -53,12 +53,12 @@ body {
 /* ===== 3. Header ===== */
 .app-header {
   height: var(--header-height);
-  background: linear-gradient(to right, #1e3a8a, #2563eb); /* ปรับ Gradient ให้ดู Professional ขึ้น */
+  background: linear-gradient(to right, #1212e7, #b7c5e4); /* ปรับ Gradient ให้ดู Professional ขึ้น */
   color: white;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 30px;
   box-shadow: var(--shadow-md);
   z-index: 50; /* อยู่เหนือ Sidebar */
   flex-shrink: 0;
@@ -76,7 +76,7 @@ body {
 }
 
 .logo-text {
-  font-weight: 700;
+  font-weight: 900;
   font-size: 20px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -109,7 +109,7 @@ body {
   padding: 6px 12px;
   border-radius: 6px;
   transition: background 0.2s;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(190, 176, 176, 0.1);
 }
 
 .user-info:hover {

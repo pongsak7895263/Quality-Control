@@ -1,148 +1,98 @@
 // backend/models/User.js
-const { DataTypes } = require("sequelize");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
-module.exports = (sequelize) => {
-  const User = sequelize.define(
-    "User",
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-      },
-      username: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        unique: true,
-      },
-      email: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
-        unique: true,
-      },
-      password: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-        field: 'password_hash' // ชี้ไปที่ column password_hash ในฐานข้อมูล
-      },
-      firstName: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-        field: 'first_name',
-      },
-      lastName: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-        field: 'last_name',
-      },
-      role: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        defaultValue: "user",
-      },
-      department: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-      },
-      isActive: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
-        field: 'is_active',
-      },
-      failedLoginAttempts: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-        field: 'failed_login_attempts',
-      },
-      lockedUntil: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: 'locked_until',
-      },
-      lastLogin: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: 'last_login',
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-        field: 'created_at',
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-        field: 'updated_at',
-      },
+module.exports = (sequelize, DataTypes) => {
+  const User = sequelize.define("User", {
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
     },
-    {
-      tableName: "users",
-      timestamps: true,
-      createdAt: 'created_at',
-      updatedAt: 'updated_at',
-      
-      defaultScope: {
-        attributes: { exclude: ["password"] },
-      },
-      
-      scopes: {
-        withPassword: {
-          attributes: { include: ["password"] },
-        },
-      },
-      
-      hooks: {
-        beforeCreate: async (user) => {
-          if (user.password) {
-            user.password = await bcrypt.hash(user.password, 10);
-          }
-        },
-        beforeUpdate: async (user) => {
-          if (user.changed("password")) {
-            user.password = await bcrypt.hash(user.password, 10);
-          }
-        },
-      },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: { isEmail: true },
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    role: {
+      type: DataTypes.STRING,
+      defaultValue: 'user',
+    },
+    firstName: { type: DataTypes.STRING },
+    lastName: { type: DataTypes.STRING },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
+    // สำหรับระบบ Lock Account
+    loginAttempts: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    lockedUntil: {
+      type: DataTypes.DATE,
+    },
+    lastLogin: {
+      type: DataTypes.DATE,
     }
-  );
-
-  User.prototype.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
-  };
-
-  User.prototype.updateLastLogin = async function () {
-    this.lastLogin = new Date();
-    this.failedLoginAttempts = 0;
-    this.lockedUntil = null;
-    await this.save({ 
-      fields: ["lastLogin", "failedLoginAttempts", "lockedUntil"] 
-    });
-  };
-
-  User.prototype.handleFailedLogin = async function () {
-    this.failedLoginAttempts += 1;
-    if (this.failedLoginAttempts >= 5) {
-      this.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+  }, {
+    tableName: 'users',
+    timestamps: true,
+    scopes: {
+      // Scope สำหรับดึง Password (ปกติเราจะไม่ดึงมา)
+      withPassword: {
+        attributes: { include: ['password'] },
+      }
     }
-    await this.save({ 
-      fields: ["failedLoginAttempts", "lockedUntil"] 
-    });
+  });
+
+  // --- Instance Methods (ฟังก์ชันที่ authController เรียกใช้) ---
+
+  // 1. เทียบรหัสผ่าน
+  User.prototype.comparePassword = async function (enteredPassword) {
+    if (!this.password) return false;
+    return await bcrypt.compare(enteredPassword, this.password);
   };
 
+  // 2. เช็คว่าโดนล็อคไหม
   User.prototype.isLocked = function () {
     return this.lockedUntil && this.lockedUntil > new Date();
   };
 
-  User.prototype.getFullName = function() {
-    return `${this.firstName || ''} ${this.lastName || ''}`.trim() || this.username;
+  // 3. อัปเดตเวลาล็อกอินล่าสุด
+  User.prototype.updateLastLogin = async function () {
+    this.lastLogin = new Date();
+    this.loginAttempts = 0;
+    this.lockedUntil = null;
+    await this.save();
   };
 
-  console.log('User model loaded successfully');
+  // 4. จัดการเมื่อล็อกอินผิด (Lock Account logic)
+  User.prototype.handleFailedLogin = async function () {
+    this.loginAttempts += 1;
+    if (this.loginAttempts >= 5) { // ผิด 5 ครั้ง ล็อค 15 นาที
+      this.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+    }
+    await this.save();
+  };
+  
+  // 5. ดึงชื่อเต็ม
+  User.prototype.getFullName = function () {
+      return `${this.firstName || ''} ${this.lastName || ''}`.trim();
+  };
+
+  // --- Hooks ---
+  // Hash Password ก่อนบันทึก
+  User.beforeSave(async (user) => {
+    if (user.changed("password")) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(user.password, salt);
+    }
+  });
 
   return User;
 };

@@ -38,6 +38,16 @@ try {
 } catch (error) {
   console.error('  ✗ InspectionImage load error:', error.message);
 }
+// Load InspectionFile model (ของใหม่ ✅)
+let InspectionFile;
+try {
+  // ตรวจสอบชื่อไฟล์ให้ตรงกับที่คุณสร้าง (inspectionFileModel.js)
+  const InspectionFileModule = require("./inspectionFileModel"); 
+  InspectionFile = (typeof InspectionFileModule === 'function') ? InspectionFileModule(sequelize, Sequelize) : InspectionFileModule;
+  console.log('  ✓ InspectionFile model loaded');
+} catch (error) {
+  console.error('  ✗ InspectionFile load error:', error.message);
+}
 
 // Load PasswordResetToken model
 let PasswordResetToken;
@@ -74,7 +84,22 @@ if (User && MaterialInspection) {
   User.hasMany(MaterialInspection, { foreignKey: "inspectorId", as: "inspections" });
   MaterialInspection.belongsTo(User, { foreignKey: "inspectorId", as: "inspectorInfo" });
 }
-
+// --- เพิ่มความสัมพันธ์ไฟล์แนบ (ตรงนี้ครับ ✅) ---
+if (MaterialInspection && InspectionFile) {
+  // 1 Inspection มีได้หลาย File
+  MaterialInspection.hasMany(InspectionFile, { 
+    foreignKey: "inspection_id", 
+    as: "attached_files", // ⚠️ สำคัญ: ต้องตรงกับใน inspectionModel.js ที่เขียนว่า include: [{ model: ..., as: "attached_files" }]
+    onDelete: 'CASCADE'   // ลบ Inspection แล้วลบไฟล์ด้วย
+  });
+  
+  // 1 File เป็นของ 1 Inspection
+  InspectionFile.belongsTo(MaterialInspection, { 
+    foreignKey: "inspection_id", 
+    as: "inspection" 
+  });
+  console.log('  ✓ MaterialInspection <-> InspectionFile');
+}
 if (MaterialInspection && InspectionImage) {
   MaterialInspection.hasMany(InspectionImage, { foreignKey: "inspectionId", as: "images" });
   InspectionImage.belongsTo(MaterialInspection, { foreignKey: "inspectionId", as: "inspection" });
@@ -121,7 +146,8 @@ const db = {
   MaterialInspection,
   InspectionImage,
   PasswordResetToken,
-  // เพิ่มของใหม่
+  // เพิ่มของใหม่ ✅
+  InspectionFile,
   Instrument,
   CalibrationPlan,
   CalibrationResult,

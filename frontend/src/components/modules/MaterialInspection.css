@@ -1,498 +1,222 @@
 /* ==========================================================================
-   Material Inspection - Fixed Scroll Layout (Final Fix)
+   Material Inspection - Full Design System
    ========================================================================== */
 
-/* --- 1. Design Tokens --- */
-:root {
-  --color-primary: #1a1a2e;
-  --color-secondary: #0f3460;
-  --color-accent: #e94560;
-  --color-bg: #f3f6f9;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --shadow-modal: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
-  --color-surface: #ffffff;
-  --color-border: #e5e7eb;
-  --color-secondary: #3b82f6;
-  --radius-lg: 12px;
-  --radius-md: 8px;
-  --text-muted: #6b7280;
-}
-
-/* Reset & Base */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'DM Sans', 'Noto Sans Thai', sans-serif; background: var(--color-bg); color: var(--text-main); }
-
-/* Custom Scrollbar (PC) */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #f1f1f1; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-/* --- 2. Main Container --- */
-.material-inspection-container {
-  padding: 1.5rem;
-  max-width: 1600px;
-  margin: 0 auto;
-  min-height: 100vh;
-}
-
-/* Header & Stats & Table Styles (คงเดิมเพื่อให้สวยงาม) */
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;width:100%; }
-.page-title { font-size: 2.0rem; font-weight: 700; color: var(--color-primary); }
-.add-new-btn { background: var(--color-secondary); color: white; padding: 0.95rem 1.5rem; border-radius: var(--radius-md); border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;margin-left: auto; }
-
-/* Stats Grid */
-.stats-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-.stats-card { background: var(--color-surface); padding: 1.5rem; border-radius: var(--radius-lg); display: flex; align-items: center; gap: 1rem; border: 1px solid var(--color-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.stats-icon { font-size: 2rem; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border-radius: 50%; }
-.stats-card.blue .stats-icon { color: var(--color-secondary); background: #e0e7ff; }
-.stats-card.green .stats-icon { color: #166534; background: #dcfce7; }
-.stats-card.red .stats-icon { color: #991b1b; background: #fee2e2; }
-.stats-card.yellow .stats-icon { color: #854d0e; background: #fef9c3; }
-
-/* Filter & Search */
-.search-filter-section { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-.search-bar-container { flex: 2; min-width: 50px; }
-.month-selector-container { flex: 1; min-width: 100px; }
-.search-input-wrapper, .month-selector-wrapper { background: var(--color-surface); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--color-border); display: flex; gap: 0.5rem; }
-.search-input, .month-select { border: none; outline: none; width: 100%; background: transparent; }
-
-/* Table */
-.table-container { background: var(--color-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-border); overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.table-header { padding: 1.5rem; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
-.table-responsive { width: 100%; overflow-x: auto; }
-.modern-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
-.modern-table th { text-align: left; padding: 1rem 1.5rem; background: #f8fafc; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--color-border); }
-.modern-table td { padding: 1rem 1.5rem; vertical-align: middle; border-bottom: 1px solid var(--color-border); }
-.status-badge { padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block; }
-.status-pass { background: #dcfce7; color: #166534; }
-.status-fail { background: #fee2e2; color: #991b1b; }
-.status-pending { background: #fef9c3; color: #854d0e; }
-.action-buttons { display: flex; gap: 0.5rem; }
-.action-btn { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
-.view-btn { background: #e0f2fe; color: #0284c7; }
-.edit-btn { background: #fef3c7; color: #d97706; }
-.delete-btn { background: #fee2e2; color: #dc2626; }
-.pagination-container { padding: 1.5rem; display: flex; justify-content: center; gap: 0.5rem; }
-.pagination-btn { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--color-border); background: white; cursor: pointer; }
-
-/* ==========================================================================
-   3. MODAL SYSTEM (หัวใจสำคัญ: บังคับ Scroll ให้ทำงาน)
-   ========================================================================== */
-
-/* ==========================================================================
-   MODAL SCROLL FIX (แก้ปัญหาหน้าจอไม่พอดี)
-   ========================================================================== */
-
-/* 1. ฉากหลัง (Overlay) */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6); /* สีพื้นหลังจางๆ */
-  display: flex;
-  align-items: center;     /* จัดกึ่งกลางแนวตั้ง */
-  justify-content: center; /* จัดกึ่งกลางแนวนอน */
-  z-index: 1000;
-  padding: 10px;           /* เว้นขอบเล็กน้อยไม่ให้ชิดจอเกินไป */
-}
-
-/* 2. กล่อง Modal หลัก */
-.modal-content {
-  background: white;
-  width: 100%;
-  max-width: 900px;        /* ความกว้างสูงสุด */
-  border-radius: 10px;
-  
-  /* --- ส่วนสำคัญที่ทำให้เลื่อนได้ --- */
-  height: 90vh;            /* บังคับความสูงไว้ที่ 90% ของหน้าจอ */
-  max-height: 90vh;        /* ห้ามสูงเกิน 90% ของหน้าจอเด็ดขาด */
-  display: flex;           /* ใช้ Flexbox จัดเรียงแนวตั้ง */
-  flex-direction: column;
-  overflow: hidden;        /* ซ่อนส่วนที่ล้นกรอบ */
-  /* ------------------------------- */
-  
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-}
-
-/* 3. ส่วนหัว (Header) - ติดตายด้านบน */
-.modal-header {
-  padding: 15px 20px;
-  background: #1a1a2e;     /* สีพื้นหลังส่วนหัว */
-  color: rgb(22, 21, 21);
-  flex-shrink: 0;          /* ห้ามหดตัว */
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* 4. ตัว Form ที่หุ้มเนื้อหา - ต้องยืดเต็มที่ */
-.inspection-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;                 /* ยืดเต็มพื้นที่ที่เหลือจาก Header */
-  min-height: 0;           /* แก้บั๊ก Flexbox ให้ Scrollbar ทำงาน */
-  overflow: hidden;        /* ห้าม Scroll ที่ตัวนี้ */
-}
-
-/* 5. เนื้อหาตรงกลาง (Body) - จุดที่เลื่อนได้ */
-.modal-scroll-body {
-  padding: 20px;
-  overflow-y: auto;        /* สั่งให้มี Scrollbar แนวตั้งเฉพาะตรงนี้ */
-  flex: 1;                 /* ยืดเต็มพื้นที่ */
-  background: #f8f9fa;
-}
-
-/* 6. ส่วนท้าย (ปุ่มกด) - ติดตายด้านล่าง */
-.modal-actions {
-  padding: 15px 20px;
-  background: white;
-  border-top: 1px solid #ddd;
-  flex-shrink: 0;          /* ห้ามหดตัว */
-  display: flex;
-  justify-content: flex-end; /* ปุ่มชิดขวา */
-  gap: 10px;
-}
-
-/* --- Responsive สำหรับมือถือ --- */
-@media (max-width: 640px) {
-  .modal-content {
-    height: 100%;          /* มือถือให้เต็มจอไปเลย */
-    max-height: 100vh;
-    border-radius: 0;      /* เอาขอบมนออก */
+   :root {
+    --color-primary: #1a1a2e;
+    --color-secondary: #0f3460;
+    --color-accent: #e94560;
+    --color-bg: #f3f6f9;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-modal: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
   }
+  
+  /* Reset & Base */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', 'Noto Sans Thai', sans-serif; background: var(--color-bg); color: var(--text-main); }
+  
+  /* --- 1. MODAL LAYOUT (ส่วนสำคัญของหน้าเพิ่มรายการ) --- */
+  
   .modal-overlay {
-    padding: 0;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
   }
-}
-/* ==========================================================================
-   Filter Title & Toggle Button Styles
-   ========================================================================== */
-
-/* 1. กลุ่มหัวข้อตัวกรอง (Container) */
-.filter-title-group {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* ระยะห่างระหว่างปุ่มกดและป้าย Badge */
-}
-
-/* 2. ปุ่มกดเปิด/ปิดตัวกรอง */
-.filter-toggle-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px; /* ระยะห่างระหว่างลูกศรและข้อความ */
-  cursor: pointer;
-  color: var(--color-text-primary, #1e293b); /* สีข้อความ */
-  transition: opacity 0.2s ease;
-}
-
-.filter-toggle-btn:hover {
-  opacity: 0.8; /* เอฟเฟกต์เมื่อเอาเมาส์ชี้ */
-}
-
-/* จัดการ H3 ข้างในปุ่มไม่ให้มี Margin กวนใจ */
-.filter-toggle-btn h3 {
-  margin: 0;
-  font-family: var(--font-display, sans-serif);
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-  color: inherit;
-}
-
-/* 3. ไอคอนลูกศร (Animation หมุน) */
-.toggle-icon {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary, #64748b);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Animation หมุนนุ่มๆ */
-  display: inline-block;
-}
-
-/* สถานะเมื่อเปิด (หมุนลูกศรลง) */
-.toggle-icon.expanded {
-  transform: rotate(90deg);
-  color: var(--color-accent, #e94560); /* เปลี่ยนสีลูกศรเมื่อเปิด */
-}
-
-/* ==========================================================================
-   FILTER SECTION (Horizontal Layout)
-   ========================================================================== */
-
-/* 1. ส่วนหัวของตัวกรอง (Header) */
-.filter-header-modern {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: var(--color-bg, #f8f9fc); /* สีพื้นหลังหัวข้อ */
-  border-bottom: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 8px 8px 0 0; /* มนเฉพาะด้านบน */
-}
-
-/* กลุ่มชื่อและปุ่มกด */
-.filter-title-group {
-  display: flex;
-  align-items: center;
-  gap: 10px; /* ระยะห่างระหว่างปุ่มกับป้าย Badge */
-}
-
-/* ปุ่มกดเปิด/ปิด (ปรับให้เหมือน Text Link) */
-.filter-toggle-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px; /* ระยะห่างไอคอนกับข้อความ */
-  color: var(--color-text-primary, #333);
-  font-family: inherit;
-  transition: opacity 0.2s;
-}
-
-.filter-toggle-btn:hover {
-  opacity: 0.7;
-}
-
-.filter-toggle-btn h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-/* ไอคอนลูกศรหมุน */
-.toggle-icon {
-  font-size: 0.8rem;
-  transition: transform 0.3s ease;
-}
-.toggle-icon.expanded {
-  transform: rotate(90deg); /* หมุนลงเมื่อเปิด */
-}
-
-/* 2. ส่วนเนื้อหาตัวกรอง (Grid แนวนอน) */
-.filter-grid-modern {
-  padding: 15px;
-  background-color: #fff;
-  border-radius: 0 0 8px 8px;
   
-  /* --- หัวใจสำคัญของการจัดแนวนอน --- */
-  display: flex;           /* ใช้ Flexbox */
-  flex-direction: row;     /* เรียงแนวนอน */
-  flex-wrap: wrap;         /* ถ้าที่เต็มให้ปัดลงบรรทัดใหม่ */
-  gap: 15px;               /* ระยะห่างระหว่างช่อง */
-  align-items: flex-end;   /* จัดให้ Input อยู่ระนาบเดียวกันด้านล่าง */
-  /* -------------------------------- */
-}
-
-/* กลุ่ม Input แต่ละตัว */
-.filter-group-modern {
-  flex: 1;                 /* ยืดขยายให้เต็มพื้นที่ */
-  min-width: 180px;        /* ความกว้างขั้นต่ำ (กันบีบจนเล็กเกิน) */
-  display: flex;
-  flex-direction: column;  /* Label อยู่บน Input */
-  gap: 5px;
-}
-
-/* ป้ายกำกับ (Label) */
-.filter-label {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--color-text-secondary, #666);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* Input และ Select */
-.filter-input-modern {
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  width: 100%;             /* ยืดเต็มกรอบของตัวเอง */
-  background-color: #fff;
-  height: 38px;            /* กำหนดความสูงให้เท่ากันทุกช่อง */
-}
-
-.filter-input-modern:focus {
-  outline: none;
-  border-color: var(--color-secondary, #0f3460);
-  box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
-}
-
-/* ปุ่มล้างค่า (Clear) */
-.btn-clear-filters {
-  background-color: #fee2e2;
-  color: #ef4444;
-  border: none;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.btn-clear-filters:hover {
-  background-color: #fca5a5;
-  color: #fff;
-}
-/* ==========================================================================
-   MEASUREMENT GRID (4 Columns Layout)
-   ========================================================================== */
-
-/* 1. ตัว Container หลัก (กำหนดให้เป็น Grid 4 คอลัมน์) */
-.rod-measurements {
-  display: grid;
-  /* repeat(4, 1fr) = แบ่งเป็น 4 ช่องเท่าๆ กัน */
-  grid-template-columns: repeat(4, 1fr); 
-  gap: 1rem; /* ระยะห่างระหว่างกล่อง */
-  margin-top: 1rem;
-}
-
-/* 2. ตัวการ์ดแต่ละใบ (กล่องข้อมูล) */
-.bar-inspection-card, 
-.rod-inspection-card {
-  background: #ffffff;
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* ระยะห่างระหว่าง Input ในกล่อง */
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-/* เอฟเฟกต์เมื่อเอาเมาส์ชี้ */
-.bar-inspection-card:hover, 
-.rod-inspection-card:hover {
-  border-color: var(--color-secondary, #0f3460);
-  box-shadow: 0 4px 12px rgba(15, 52, 96, 0.1);
-  transform: translateY(-2px);
-}
-
-/* 3. หัวข้อในการ์ด (เช่น เส้นที่ 1, ท่อนที่ 1) */
-.bar-inspection-card h5, 
-.rod-inspection-card h5 {
-  margin: 0 0 5px 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-secondary, #0f3460);
-  border-bottom: 2px solid #f1f5f9;
-  padding-bottom: 8px;
-  text-align: center;
-}
-
-/* 4. ปรับแต่ง Input ข้างในให้สวยงาม */
-.bar-inspection-card input, 
-.rod-inspection-card input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  text-align: center; /* ให้ตัวเลขอยู่ตรงกลาง */
-}
-
-.bar-inspection-card input:focus, 
-.rod-inspection-card input:focus {
-  outline: none;
-  border-color: var(--color-accent, #e94560);
-  background: #fffafa;
-}
-
-/* --- RESPONSIVE (ปรับอัตโนมัติเมื่อจอเล็ก) --- */
-
-/* แท็บเล็ต (ลดเหลือ 2 คอลัมน์) */
-@media (max-width: 900px) {
-  .rod-measurements {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* มือถือ (ลดเหลือ 1 คอลัมน์ เต็มจอ) */
-@media (max-width: 600px) {
-  .rod-measurements {
-    grid-template-columns: 1fr;
-  }
-}
-/* PDF File Badge In Table */
-.file-list-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.pdf-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background-color: #fee2e2; /* พื้นหลังสีแดงอ่อน */
-  color: #dc2626;            /* ตัวหนังสือสีแดงเข้ม */
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: 1px solid #fecaca;
-}
-
-.pdf-badge:hover {
-  background-color: #dc2626;
-  color: white;
-  border-color: #dc2626;
-  transform: translateY(-1px);
-}
-
-.no-file {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-/* --- Form Styles --- */
-.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
-.full-width { grid-column: 1 / -1; }
-.form-label { font-weight: 500; font-size: 0.9rem; color: var(--text-main); }
-.required { color: var(--color-accent); }
-.form-input, .form-select, .form-textarea { padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.95rem; width: 100%; }
-.form-input:focus { border-color: var(--color-secondary); box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1); outline: none; }
-
-/* Upload & Measurements */
-.file-upload-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-.upload-group { background: white; padding: 1.5rem; border: 2px dashed var(--color-border); border-radius: 8px; text-align: center; }
-.section-header { margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
-.measurements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
-.measurement-card { background: white; padding: 1rem; border: 1px solid var(--color-border); border-radius: 8px; }
-
-/* Buttons */
-.btn { padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; font-size: 0.95rem; }
-.btn-primary { background: var(--color-secondary); color: white; }
-.btn-secondary { background: white; border: 1px solid var(--color-border); color: var(--text-main); }
-
-/* --- 4. Mobile Overrides (เฉพาะมือถือ) --- */
-@media (max-width: 640px) {
-  .material-inspection-container { padding: 0.5rem; }
-  .header-content { flex-direction: column; align-items: stretch; }
-  .stats-section { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .stats-card { padding: 1rem; flex-direction: column; align-items: flex-start; }
-  
-  /* Modal เต็มจอบนมือถือ */
-  .modal-overlay { padding: 0; }
   .modal-content {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
     width: 100%; 
-    height: 100%;      /* เต็มความสูงมือถือ */
-    max-height: 100vh; /* ห้ามเกิน */
-    border-radius: 0;  /* ลบมุมโค้ง */
+    max-width: 900px;    /* ความกว้างสูงสุด */
+    
+    /* --- จัดการความสูงและการเลื่อน --- */
+    height: 90vh;        /* สูง 90% ของหน้าจอ */
+    max-height: 90vh;
+    display: flex;       /* Flexbox แนวตั้ง */
+    flex-direction: column;
+    overflow: hidden;    /* ซ่อนส่วนเกิน */
+    /* ------------------------------- */
+    
+    animation: modalSlideUp 0.3s ease-out;
   }
-  .modal-scroll-body { padding: 1rem; }
-  .form-grid { grid-template-columns: 1fr; gap: 1rem; }
-  .measurements-grid { grid-template-columns: 1fr 1fr; }
-}
+  
+  @keyframes modalSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  
+  /* ส่วนหัว (Header) */
+  .modal-header {
+    flex-shrink: 0;      /* ห้ามย่อ */
+    padding: 1rem 1.5rem;
+    background: var(--color-primary); color: white;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-header h2 { margin: 0; font-size: 1.25rem; }
+  .close-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: 0.2s; }
+  .close-btn:hover { background: rgba(255,255,255,0.3); }
+  
+  /* Wrapper ของฟอร์ม */
+  .inspection-form {
+    display: flex; 
+    flex-direction: column;
+    flex: 1;             /* ยืดเต็มพื้นที่ที่เหลือ */
+    min-height: 0;       /* แก้บั๊ก Flexbox */
+    overflow: hidden;
+  }
+  
+  /* ส่วนเนื้อหาที่เลื่อนได้ (Scrollable Body) */
+  .modal-scroll-body {
+    padding: 1.5rem;
+    overflow-y: auto;    /* สั่งให้ Scroll แนวตั้ง */
+    flex: 1;
+    background: #f8fafc;
+  }
+  
+  /* ส่วนปุ่มกดด้านล่าง (Sticky Footer) */
+  .modal-actions {
+    flex-shrink: 0;      /* ห้ามย่อ */
+    padding: 1rem 1.5rem;
+    background: white; 
+    border-top: 1px solid var(--color-border);
+    display: flex; justify-content: flex-end; gap: 1rem;
+    z-index: 10;
+    box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.02);
+  }
+  
+  /* --- 2. FORM ELEMENTS --- */
+  
+  .form-grid {
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Responsive Grid */
+    gap: 1.2rem; margin-bottom: 1.5rem;
+  }
+  
+  .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .full-width { grid-column: 1 / -1; } /* เต็มบรรทัด */
+  
+  .form-label { font-size: 0.9rem; font-weight: 600; color: var(--text-main); }
+  .required { color: var(--color-accent); margin-left: 3px; }
+  
+  .form-input, .form-select, .form-textarea {
+    padding: 0.7rem; border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); width: 100%;
+    font-family: inherit; font-size: 0.95rem;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none; border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+  }
+  
+  /* Section Header */
+  .section-header { 
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; margin-top: 0.5rem;
+  }
+  .section-header h3 { margin: 0; font-size: 1.1rem; color: var(--color-secondary); white-space: nowrap; }
+  .section-divider { height: 1px; background: #e2e8f0; flex: 1; }
+  
+  /* --- 3. MEASUREMENT CARDS (Grid 4 คอลัมน์) --- */
+  
+  .rod-measurements {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 กล่องต่อแถว */
+    gap: 1rem;
+  }
+  
+  .bar-inspection-card, .rod-inspection-card {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  
+  .bar-inspection-card h5, .rod-inspection-card h5 {
+    margin: 0 0 0.5rem 0; text-align: center; color: var(--color-secondary); border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;
+  }
+  
+  /* Input ในการ์ด */
+  .bar-inspection-card input, .rod-inspection-card input {
+    text-align: center; padding: 0.5rem; margin-bottom: 0.2rem;
+  }
+  
+  /* --- 4. FILE UPLOAD --- */
+  
+  .file-upload-section {
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .upload-group {
+    border: 2px dashed #cbd5e1; border-radius: var(--radius-md);
+    padding: 1.5rem; text-align: center; background: #fff;
+    transition: all 0.2s;
+  }
+  .upload-group:hover { border-color: var(--color-secondary); background: #f8fafc; }
+  
+  /* --- 5. MAIN PAGE LAYOUT (Header & Buttons) --- */
+  
+  .page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; width: 100%;
+  }
+  .page-title { font-size: 1.8rem; font-weight: 700; color: var(--color-primary); margin: 0; }
+  .add-new-btn {
+    background: var(--color-secondary); color: white;
+    padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
+    margin-left: auto; /* ดันไปขวาสุด */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .add-new-btn:hover { background: #16213e; transform: translateY(-1px); }
+  
+  /* --- 6. TABLE & PDF --- */
+  
+  .table-container {
+    background: var(--color-surface); border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border); overflow: hidden; margin-top: 1rem;
+  }
+  .table-responsive { width: 100%; overflow-x: auto; }
+  .modern-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+  .modern-table th {
+    text-align: left; padding: 1rem; background: #f1f5f9; color: var(--text-muted);
+    font-weight: 600; font-size: 0.85rem; border-bottom: 1px solid var(--color-border);
+  }
+  .modern-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  
+  /* PDF Badge */
+  .file-list-cell { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pdf-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background-color: #fee2e2; color: #dc2626;
+    padding: 4px 8px; border-radius: 4px;
+    font-size: 0.75rem; font-weight: 600; text-decoration: none;
+    border: 1px solid #fecaca; transition: all 0.2s;
+  }
+  .pdf-badge:hover { background-color: #dc2626; color: white; transform: translateY(-1px); }
+  .no-file { color: #94a3b8; font-size: 0.85rem; }
+  
+  /* --- 7. RESPONSIVE (MOBILE) --- */
+  
+  @media (max-width: 768px) {
+    .material-inspection-container { padding: 0.5rem; }
+    
+    /* Modal เต็มจอในมือถือ */
+    .modal-content { height: 100%; max-height: 100vh; border-radius: 0; }
+    .modal-overlay { padding: 0; }
+    
+    /* ปรับ Grid เป็นแถวเดียว */
+    .form-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .rod-measurements { grid-template-columns: repeat(2, 1fr); } /* เหลือ 2 กล่อง */
+    
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .add-new-btn { width: 100%; justify-content: center; margin-left: 0; }
+  }
+  
+  @media (max-width: 480px) {
+    .rod-measurements { grid-template-columns: 1fr; } /* เหลือ 1 กล่อง */
+  }

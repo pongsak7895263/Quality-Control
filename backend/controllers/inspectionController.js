@@ -11,15 +11,15 @@ export const getInspections = async (req, res) => {
   try {
     console.log("Query Params Received:", req.query); // ดู log ว่า frontend ส่งอะไรมา
     // ✅ 1. แก้ไข: รับค่า Filter ใหม่ๆ จาก Query Params
-    const { 
-      status, 
+    const {
+      status,
       supplier_name, // Frontend ส่งมาเป็น supplier_name หรือ supplier เช็คให้ตรงกัน
       maker_mat,     // ✅ เพิ่มตัวกรอง Maker Mat
       receipt_date,  // ✅ เพิ่มตัวกรอง Receipt Date
       material_grade,
       cer_number,
-      page = 1, 
-      limit = 10 
+      page = 1,
+      limit = 10
     } = req.query;
 
     const filters = {
@@ -85,12 +85,12 @@ export const addInspection = async (req, res) => {
 
     // ✅ 2. แก้ไข: เพิ่ม validation ให้ maker_mat และ receipt_date จำเป็นต้องมี
     if (
-      !material_type || 
-      !material_grade || 
-      !batch_number || 
-      !supplier_name || 
-      !invoice_number || 
-      !inspector || 
+      !material_type ||
+      !material_grade ||
+      !batch_number ||
+      !supplier_name ||
+      !invoice_number ||
+      !inspector ||
       !maker_mat ||   // ✅ เช็คว่าห้ามว่าง
       !receipt_date   // ✅ เช็คว่าห้ามว่าง
     ) {
@@ -123,7 +123,13 @@ export const addInspection = async (req, res) => {
 
     // Process uploaded files
     if (req.files && req.files.length > 0) {
-      data.image_paths = req.files.map((file) => file.path); // หรือ file.filename ขึ้นอยู่กับ config upload
+      //data.uploaded_files = req.files.map((file) => file.path); // หรือ file.filename ขึ้นอยู่กับ config upload
+      data.uploaded_files = req.files.map((file) => ({
+        file_path: file.path.replace(/\\/g, "/"), // แก้ Path Windows (\ -> /)
+        original_name: file.originalname,          // เก็บชื่อไฟล์เดิม
+        file_type: file.mimetype,                  // เก็บประเภทไฟล์
+        file_size: file.size                       // เก็บขนาดไฟล์
+      }));
     }
 
     // --- STEP 3: SAVE TO DATABASE ---
@@ -155,30 +161,30 @@ export const editInspection = async (req, res) => {
     // ✅ 3. แก้ไข: เพิ่ม Logic การ Parse JSON เหมือนตอน Create 
     // เพราะถ้าแก้ไขแล้วมีการแนบรูปใหม่มาด้วย Frontend อาจจะส่งมาเป็น FormData ซึ่ง Array จะกลายเป็น String
     if (updateData.bar_inspections && typeof updateData.bar_inspections === "string") {
-        updateData.bar_inspections = JSON.parse(updateData.bar_inspections);
+      updateData.bar_inspections = JSON.parse(updateData.bar_inspections);
     }
     if (updateData.rod_inspections && typeof updateData.rod_inspections === "string") {
-        updateData.rod_inspections = JSON.parse(updateData.rod_inspections);
+      updateData.rod_inspections = JSON.parse(updateData.rod_inspections);
     }
-    
+
     // จัดการไฟล์ใหม่ถ้ามีการอัปโหลดเพิ่มตอนแก้ไข
     if (req.files && req.files.length > 0) {
-        // Logic นี้ขึ้นอยู่กับว่าคุณอยาก "เพิ่มต่อ" หรือ "ทับของเดิม"
-        // อันนี้สมมติว่าเอา path ใหม่ใส่เข้าไป (Backend Model ต้องจัดการต่อเอง)
-        //updateData.new_images = req.files.map((file) => file.path);
-        data.uploaded_files = req.files.map((file) => ({
-          file_path: file.path.replace(/\\/g, "/"),
-          original_name: file.originalname, // สำคัญ! ต้องเก็บชื่อเดิม
-          file_type: file.mimetype
+      // Logic นี้ขึ้นอยู่กับว่าคุณอยาก "เพิ่มต่อ" หรือ "ทับของเดิม"
+      // อันนี้สมมติว่าเอา path ใหม่ใส่เข้าไป (Backend Model ต้องจัดการต่อเอง)
+      //updateData.new_images = req.files.map((file) => file.path);
+      data.uploaded_files = req.files.map((file) => ({
+        file_path: file.path.replace(/\\/g, "/"),
+        original_name: file.originalname, // สำคัญ! ต้องเก็บชื่อเดิม
+        file_type: file.mimetype
       }));
     }
 
     if (!id) {
       return res.status(400).json({ success: false, error: "Inspection ID is required" });
     }
-    
+
     const updated = await updateInspection(id, updateData);
-    
+
     if (!updated) {
       return res.status(404).json({ success: false, error: "Inspection not found" });
     }

@@ -32,6 +32,7 @@
 const express = require('express');
 const router = express.Router();
 const kpi = require('../controllers/kpiController');
+const prod = require('../controllers/kpiProductionController');
 
 // ─── Dashboard & KPI Values ─────────────────────────────────
 router.get('/dashboard',       kpi.getDashboard);
@@ -39,6 +40,11 @@ router.get('/values',          kpi.getKpiValues);
 router.get('/trends',          kpi.getTrends);
 router.get('/pareto',          kpi.getPareto);
 router.get('/master',          kpi.getMasterData);
+
+// ─── Production (ระบบบันทึกผลผลิต + รายงาน) ✅ NEW ──────────
+router.post('/production',         prod.createProduction);
+router.get('/production/report',   prod.getReport);
+router.get('/production/export',   prod.exportReport);
 
 // ─── Inspection Entries ─────────────────────────────────────
 router.post('/entries',        kpi.createEntry);

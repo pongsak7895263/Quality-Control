@@ -328,74 +328,141 @@ const getPareto = async (req, res) => {
   try {
     const { dateRange = 'mtd', category = 'all', line = 'ALL' } = req.query;
 
-    let dateFilter;
+    let dateFilter, dateFilterDD;
     switch (dateRange) {
-      case 'today': dateFilter = `ie.inspected_at::DATE = CURRENT_DATE`; break;
-      case 'mtd': dateFilter = `ie.inspected_at >= DATE_TRUNC('month', CURRENT_DATE)`; break;
-      case 'ytd': dateFilter = `ie.inspected_at >= DATE_TRUNC('year', CURRENT_DATE)`; break;
-      default: dateFilter = `ie.inspected_at >= DATE_TRUNC('month', CURRENT_DATE)`;
+      case 'today':
+        dateFilter = `ie.inspected_at::DATE = CURRENT_DATE`;
+        dateFilterDD = `dps.production_date = CURRENT_DATE`;
+        break;
+      case 'ytd':
+        dateFilter = `ie.inspected_at >= DATE_TRUNC('year', CURRENT_DATE)`;
+        dateFilterDD = `dps.production_date >= DATE_TRUNC('year', CURRENT_DATE)`;
+        break;
+      case 'mtd':
+      default:
+        dateFilter = `ie.inspected_at >= DATE_TRUNC('month', CURRENT_DATE)`;
+        dateFilterDD = `dps.production_date >= DATE_TRUNC('month', CURRENT_DATE)`;
     }
 
     const categoryFilter = category !== 'all' ? `AND dc.category = '${category}'` : '';
+    const lineFilter = line !== 'ALL' ? `AND m.code = '${line}'` : '';
 
-    // Pareto by defect code
-    const paretoResult = await query(`
-      SELECT
-        dc.code,
-        dc.name,
-        dc.name_en,
-        dc.category,
-        dc.severity,
-        COUNT(*) AS entry_count,
-        SUM(ie.quantity) AS defect_qty,
-        ROUND(
-          (SUM(ie.quantity)::DECIMAL / NULLIF(
-            (SELECT SUM(quantity) FROM inspection_entries WHERE disposition IN ('SCRAP', 'REWORK') AND ${dateFilter}), 0
-          )) * 100, 1
-        ) AS percentage
-      FROM inspection_entries ie
-      JOIN defect_codes dc ON ie.defect_code_id = dc.id
-      WHERE ie.disposition IN ('SCRAP', 'REWORK')
-      AND ${dateFilter}
-      ${categoryFilter}
-      GROUP BY dc.id, dc.code, dc.name, dc.name_en, dc.category, dc.severity
-      ORDER BY defect_qty DESC
-    `);
+    // ─── 1. Pareto จาก defect_detail (ข้อมูลใหม่จาก production) ────
+    let paretoRows = [];
+    let categoryRows = [];
+    let machineRows = [];
 
-    // Category breakdown
-    const categoryResult = await query(`
-      SELECT
-        dc.category,
-        COUNT(*) AS entry_count,
-        SUM(ie.quantity) AS defect_qty
-      FROM inspection_entries ie
-      JOIN defect_codes dc ON ie.defect_code_id = dc.id
-      WHERE ie.disposition IN ('SCRAP', 'REWORK')
-      AND ${dateFilter}
-      GROUP BY dc.category
-      ORDER BY defect_qty DESC
-    `);
+    try {
+      const paretoDD = await query(`
+        SELECT
+          dc.code, dc.name, dc.name_en, dc.category, dc.severity,
+          COUNT(*) AS entry_count,
+          SUM(dd.quantity) AS defect_qty,
+          dd.defect_type
+        FROM defect_detail dd
+        JOIN daily_production_summary dps ON dd.summary_id = dps.id
+        JOIN machines m ON dps.machine_id = m.id
+        LEFT JOIN defect_codes dc ON dd.defect_code_id = dc.id
+        WHERE ${dateFilterDD} ${categoryFilter} ${lineFilter}
+        GROUP BY dc.id, dc.code, dc.name, dc.name_en, dc.category, dc.severity, dd.defect_type
+        ORDER BY defect_qty DESC
+      `);
+      paretoRows = paretoDD.rows;
 
-    // Scrap/Rework by machine
-    const machineResult = await query(`
-      SELECT
-        m.code AS machine_code,
-        SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END) AS scrap_qty,
-        SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END) AS rework_qty
-      FROM inspection_entries ie
-      JOIN machines m ON ie.machine_id = m.id
-      WHERE ie.disposition IN ('SCRAP', 'REWORK')
-      AND ${dateFilter}
-      GROUP BY m.id, m.code
-      ORDER BY scrap_qty DESC
-    `);
+      const catDD = await query(`
+        SELECT
+          dc.category,
+          COUNT(*) AS entry_count,
+          SUM(dd.quantity) AS defect_qty
+        FROM defect_detail dd
+        JOIN daily_production_summary dps ON dd.summary_id = dps.id
+        JOIN machines m ON dps.machine_id = m.id
+        LEFT JOIN defect_codes dc ON dd.defect_code_id = dc.id
+        WHERE ${dateFilterDD} ${lineFilter}
+        GROUP BY dc.category
+        ORDER BY defect_qty DESC
+      `);
+      categoryRows = catDD.rows;
+
+      const machDD = await query(`
+        SELECT
+          m.code AS machine_code,
+          SUM(CASE WHEN dd.defect_type = 'scrap' THEN dd.quantity ELSE 0 END) AS scrap_qty,
+          SUM(CASE WHEN dd.defect_type = 'rework' THEN dd.quantity ELSE 0 END) AS rework_qty
+        FROM defect_detail dd
+        JOIN daily_production_summary dps ON dd.summary_id = dps.id
+        JOIN machines m ON dps.machine_id = m.id
+        WHERE ${dateFilterDD} ${lineFilter}
+        GROUP BY m.id, m.code
+        ORDER BY scrap_qty DESC
+      `);
+      machineRows = machDD.rows;
+    } catch (ddErr) {
+      console.warn('[KPI] defect_detail query failed, fallback to inspection_entries:', ddErr.message);
+    }
+
+    // ─── 2. Fallback: ถ้า defect_detail ไม่มีข้อมูล → ใช้ inspection_entries ─
+    if (paretoRows.length === 0) {
+      const paretoIE = await query(`
+        SELECT
+          dc.code, dc.name, dc.name_en, dc.category, dc.severity,
+          COUNT(*) AS entry_count,
+          SUM(ie.quantity) AS defect_qty,
+          ie.disposition AS defect_type
+        FROM inspection_entries ie
+        JOIN defect_codes dc ON ie.defect_code_id = dc.id
+        WHERE ie.disposition IN ('SCRAP', 'REWORK')
+        AND ${dateFilter} ${categoryFilter}
+        GROUP BY dc.id, dc.code, dc.name, dc.name_en, dc.category, dc.severity, ie.disposition
+        ORDER BY defect_qty DESC
+      `);
+      paretoRows = paretoIE.rows;
+
+      const catIE = await query(`
+        SELECT dc.category, COUNT(*) AS entry_count, SUM(ie.quantity) AS defect_qty
+        FROM inspection_entries ie
+        JOIN defect_codes dc ON ie.defect_code_id = dc.id
+        WHERE ie.disposition IN ('SCRAP', 'REWORK') AND ${dateFilter}
+        GROUP BY dc.category ORDER BY defect_qty DESC
+      `);
+      categoryRows = catIE.rows;
+
+      const machIE = await query(`
+        SELECT m.code AS machine_code,
+          SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END) AS scrap_qty,
+          SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END) AS rework_qty
+        FROM inspection_entries ie
+        JOIN machines m ON ie.machine_id = m.id
+        WHERE ie.disposition IN ('SCRAP', 'REWORK') AND ${dateFilter}
+        GROUP BY m.id, m.code ORDER BY scrap_qty DESC
+      `);
+      machineRows = machIE.rows;
+    }
+
+    // ─── 3. ถ้ายังไม่มี → ดึงจาก daily_production_summary โดยตรง ────
+    if (paretoRows.length === 0 && categoryRows.length === 0) {
+      const summaryResult = await query(`
+        SELECT
+          m.code AS machine_code,
+          dps.part_number,
+          SUM(dps.scrap_qty) AS scrap_qty,
+          SUM(dps.rework_qty) AS rework_qty,
+          SUM(dps.total_produced) AS total_produced
+        FROM daily_production_summary dps
+        JOIN machines m ON dps.machine_id = m.id
+        WHERE ${dateFilterDD} ${lineFilter}
+        GROUP BY m.code, dps.part_number
+        ORDER BY scrap_qty DESC
+      `);
+      machineRows = summaryResult.rows;
+    }
 
     res.json({
       success: true,
       data: {
-        pareto: paretoResult.rows,
-        categories: categoryResult.rows,
-        byMachine: machineResult.rows,
+        pareto: paretoRows,
+        categories: categoryRows,
+        byMachine: machineRows,
       },
     });
   } catch (error) {
@@ -654,17 +721,22 @@ const getAndonAlerts = async (req, res) => {
 const acknowledgeAlert = async (req, res) => {
   try {
     const { id } = req.params;
-    const { operator_name } = req.body;
+    const { operator_name, acknowledged_by } = req.body;
+    const assignee = acknowledged_by || operator_name || 'unknown';
+
+    // รองรับทั้ง UUID (id) และ alert_number (AND-xxx)
+    const isAlertNumber = id.startsWith('AND-');
+    const whereClause = isAlertNumber ? 'alert_number = $1' : 'id = $1';
 
     const result = await query(`
       UPDATE andon_alerts 
-      SET status = 'acknowledged',
+      SET status = 'acknowledged'::alert_status,
           acknowledged_at = NOW(),
           assignee_name = $2,
           response_minutes = ROUND(EXTRACT(EPOCH FROM (NOW() - triggered_at)) / 60, 1)
-      WHERE id = $1
+      WHERE ${whereClause}
       RETURNING *
-    `, [id, operator_name]);
+    `, [id, assignee]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Alert not found' });
@@ -684,19 +756,28 @@ const acknowledgeAlert = async (req, res) => {
 const resolveAlert = async (req, res) => {
   try {
     const { id } = req.params;
-    const { root_cause, action_taken, operator_name } = req.body;
+    const { root_cause, action_taken, operator_name, resolved_by, corrective_action } = req.body;
+
+    const cause = root_cause || corrective_action || '';
+    const action = action_taken || corrective_action || '';
+    const resolver = resolved_by || operator_name || 'unknown';
+
+    // รองรับทั้ง UUID (id) และ alert_number (AND-xxx)
+    const isAlertNumber = id.startsWith('AND-');
+    const whereClause = isAlertNumber ? 'alert_number = $1' : 'id = $1';
 
     const result = await query(`
       UPDATE andon_alerts 
-      SET status = 'resolved',
+      SET status = 'resolved'::alert_status,
           resolved_at = NOW(),
           root_cause = $2,
           action_taken = $3,
+          assignee_name = COALESCE(assignee_name, $4),
           resolution_minutes = ROUND(EXTRACT(EPOCH FROM (NOW() - triggered_at)) / 60, 1),
           downtime_minutes = ROUND(EXTRACT(EPOCH FROM (NOW() - triggered_at)) / 60, 1)
-      WHERE id = $1
+      WHERE ${whereClause}
       RETURNING *
-    `, [id, root_cause, action_taken]);
+    `, [id, cause, action, resolver]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Alert not found' });

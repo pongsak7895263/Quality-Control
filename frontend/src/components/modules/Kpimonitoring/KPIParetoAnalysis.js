@@ -9,7 +9,7 @@ import { DEFECT_CODES } from './product_categories';
 
 // ─── Mock Fallback ──────────────────────────────────────────
 const MOCK_PARETO = [
-  { code: 'DIM-001', name: 'ขนาดเกินพิกัด', name_en: 'Dimension Out', defect_qty: 47, category: 'dimensional' },
+  { code: 'DIM-001', name: 'ขนาดเกินพิกัด', name_en: 'Dimension Out', defect_qty: 10, category: 'dimensional' },
   { code: 'SUR-001', name: 'รอยขีดข่วน', name_en: 'Scratch', defect_qty: 29, category: 'surface' },
   { code: 'SUR-002', name: 'ผิวไม่เรียบ', name_en: 'Surface Roughness', defect_qty: 20, category: 'surface' },
   { code: 'DIM-002', name: 'รูเยื้องศูนย์', name_en: 'Hole Position', defect_qty: 14, category: 'dimensional' },

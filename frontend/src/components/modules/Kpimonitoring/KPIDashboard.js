@@ -14,6 +14,8 @@ import KPIParetoAnalysis from './KPIParetoAnalysis';
 import KPIAndonBoard from './KPIAndonBoard';
 import KPIDataEntry from './KPIDataEntry';
 import KPIClaimEntry from './KPIClaimEntry';
+import KPIReport from './KPIReport';
+import KPIEditData from './KPIEditData';
 import apiClient from '../../../utils/api';
 import { calculatePPM, calculatePercent } from '../../../utils/calculations';
 import {
@@ -255,7 +257,7 @@ const KPIDashboard = () => {
     fetchDashboardData();
 
     // ✅ ไม่ auto-refresh ถ้าอยู่ tab บันทึกข้อมูล/claim (ป้องกันฟอร์ม reset)
-    if (activeTab === 'entry' || activeTab === 'claim') return;
+    if (activeTab === 'entry' || activeTab === 'claim' || activeTab === 'report' || activeTab === 'edit') return;
 
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
@@ -291,6 +293,8 @@ const KPIDashboard = () => {
     { id: 'andon', label: 'Andon Board', icon: '🚨', badge: activeAlertCount },
     { id: 'entry', label: 'บันทึกข้อมูล', icon: '📝' },
     { id: 'claim', label: 'Claim', icon: '📮' },
+    { id: 'report', label: 'รายงาน', icon: '📄' },
+    { id: 'edit', label: 'แก้ไขข้อมูล', icon: '✏️' },
   ];
 
   // ─── Render ───────────────────────────────────────────────────
@@ -423,6 +427,12 @@ const KPIDashboard = () => {
             )}
             {activeTab === 'claim' && (
               <KPIClaimEntry onRefresh={fetchDashboardData} />
+            )}
+            {activeTab === 'report' && (
+              <KPIReport />
+            )}
+            {activeTab === 'edit' && (
+              <KPIEditData onRefresh={fetchDashboardData} />
             )}
           </>
         )}

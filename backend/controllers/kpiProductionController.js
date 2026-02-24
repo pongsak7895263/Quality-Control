@@ -81,14 +81,20 @@ const createProduction = async (req, res) => {
       await client.query(`
         INSERT INTO defect_detail (
           summary_id, defect_code_id, defect_type, quantity,
-          measurement, spec_value, defect_detail, rework_result
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          measurement, spec_value, defect_detail, rework_result,
+          f07_doc_no, bin_no, found_qty, sorted_good, sorted_reject
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       `, [
         summaryId, defectCodeId, item.defect_type || 'rework',
         parseInt(item.quantity) || 1,
         item.measurement ? parseFloat(item.measurement) : null,
         item.spec_value || null, item.detail || null,
         item.rework_result || null,
+        item.f07_doc_no || null,
+        item.bin_no || null,
+        parseInt(item.found_qty) || 0,
+        parseInt(item.sorted_good) || 0,
+        parseInt(item.sorted_reject) || 0,
       ]);
     }
 

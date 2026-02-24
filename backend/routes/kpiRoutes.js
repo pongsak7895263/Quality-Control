@@ -60,10 +60,26 @@ router.get('/machines/status', kpi.getMachineStatus);
 
 // ─── Customer Claims ────────────────────────────────────────
 router.post('/claims',         kpi.createClaim);
+router.patch('/claims/:id',    kpi.updateClaim);
 router.get('/claims',          kpi.getClaims);
 
 // ─── Action Plans ───────────────────────────────────────────
 router.post('/actions',        kpi.createActionPlan);
 router.get('/actions',         kpi.getActionPlans);
+
+// ─── Edit / แก้ไขข้อมูล ✅ NEW ─────────────────────────────
+const edit = require('../controllers/kpiEditController');
+router.get('/edit/production',         edit.listProduction);
+router.get('/edit/production/:id',     edit.getProduction);
+router.patch('/edit/production/:id',   edit.updateProduction);
+router.delete('/edit/production/:id',  edit.deleteProduction);
+router.patch('/edit/defect/:id',       edit.updateDefect);
+router.delete('/edit/defect/:id',      edit.deleteDefect);
+
+// ─── Export / Report (PDF, Excel, JSON) ✅ NEW ─────────────
+const exportCtrl = require('../controllers/kpiExportController');
+router.get('/export/pdf',      exportCtrl.exportPDF);
+router.get('/export/excel',    exportCtrl.exportExcel);
+router.get('/export/data',     exportCtrl.exportData);
 
 module.exports = router;

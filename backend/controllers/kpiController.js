@@ -848,18 +848,34 @@ const getMachineStatus = async (req, res) => {
 const createClaim = async (req, res) => {
   try {
     const {
-      claim_number, claim_date, claim_category, customer,
+      claim_number, claim_date, claim_category, 
+      customer, customer_name,  // รองรับทั้ง 2 ชื่อ
       product_line_code, part_number, lot_number,
       defect_code, defect_description,
       shipped_qty, defect_qty,
-      containment_action,
+      containment_action, root_cause, corrective_action,
+      status, remark, ppm,
     } = req.body;
 
-    if (!claim_number || !claim_date || !claim_category || !customer || !part_number || !shipped_qty || !defect_qty) {
+    const customerVal = customer || customer_name;
+    if (!claim_date || !claim_category || !customerVal || !part_number || !shipped_qty || !defect_qty) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields',
+        error: 'Required: claim_date, claim_category, customer/customer_name, part_number, shipped_qty, defect_qty',
       });
+    }
+
+    // Auto-generate claim_number ถ้าไม่ส่งมา
+    let claimNo = claim_number;
+    if (!claimNo) {
+      const d = new Date(claim_date);
+      const prefix = `CLM-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+      const countRes = await query(
+        `SELECT COUNT(*) AS cnt FROM customer_claims WHERE claim_number LIKE $1`,
+        [`${prefix}%`]
+      );
+      const seq = (parseInt(countRes.rows[0]?.cnt) || 0) + 1;
+      claimNo = `${prefix}-${String(seq).padStart(3,'0')}`;
     }
 
     // Resolve IDs
@@ -881,21 +897,101 @@ const createClaim = async (req, res) => {
         product_line_id, part_number, lot_number,
         defect_code_id, defect_description,
         shipped_qty, defect_qty,
-        containment_action
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        containment_action, root_cause, corrective_action,
+        status
+      ) VALUES ($1,$2,$3::claim_category,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *
     `, [
-      claim_number, claim_date, claim_category, customer,
-      productLineId, part_number, lot_number,
-      defectCodeId, defect_description,
+      claimNo, claim_date, claim_category, customerVal,
+      productLineId, part_number, lot_number || null,
+      defectCodeId, defect_description || null,
       shipped_qty, defect_qty,
-      containment_action,
+      containment_action || remark || null, root_cause || null, corrective_action || null,
+      status || 'open',
     ]);
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('[KPI] createClaim error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to create claim' });
+  }
+};
+
+/**
+ * PATCH /api/kpi/claims/:id
+ * อัปเดต Claim (status, root_cause, corrective_action ฯลฯ)
+ */
+const updateClaim = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Fields ที่อัปเดตตรงๆ ได้ (ชื่อตรงกับ column ใน DB)
+    const directFields = [
+      'status', 'root_cause', 'corrective_action', 'containment_action',
+      'defect_description', 'customer', 'part_number', 'lot_number',
+      'defect_qty', 'shipped_qty', 'claim_date',
+    ];
+
+    const setClauses = [];
+    const params = [id]; // $1 = id
+    let idx = 2;
+
+    for (const [key, value] of Object.entries(updates)) {
+      // customer_name → map to 'customer' column
+      if (key === 'customer_name') {
+        setClauses.push(`customer = $${idx}`);
+        params.push(value);
+        idx++;
+      }
+      // claim_category → needs ENUM cast
+      else if (key === 'claim_category' && value) {
+        setClauses.push(`claim_category = $${idx}::claim_category`);
+        params.push(value);
+        idx++;
+      }
+      // defect_code → resolve to defect_code_id
+      else if (key === 'defect_code' && value) {
+        try {
+          const dcRes = await query('SELECT id FROM defect_codes WHERE code = $1', [value]);
+          if (dcRes.rows.length > 0) {
+            setClauses.push(`defect_code_id = $${idx}`);
+            params.push(dcRes.rows[0].id);
+            idx++;
+          }
+        } catch (e) { /* skip if defect_codes doesn't exist */ }
+      }
+      // Direct fields
+      else if (directFields.includes(key)) {
+        setClauses.push(`${key} = $${idx}`);
+        params.push(value);
+        idx++;
+      }
+      // Skip unknown fields (ppm, remark, etc.)
+    }
+
+    if (setClauses.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+
+    if (updates.status === 'closed') {
+      setClauses.push(`closed_at = NOW()`);
+    }
+    setClauses.push(`updated_at = NOW()`);
+
+    const result = await query(
+      `UPDATE customer_claims SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+      params
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Claim not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[KPI] updateClaim error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -1050,6 +1146,7 @@ module.exports = {
   resolveAlert,
   getMachineStatus,
   createClaim,
+  updateClaim,
   getClaims,
   getActionPlans,
   createActionPlan,

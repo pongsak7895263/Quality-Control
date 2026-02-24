@@ -54,12 +54,20 @@ const KPIClaimEntry = ({ onRefresh }) => {
       const res = await apiClient.get('/kpi/claims', {
         params: { status: filter.status !== 'all' ? filter.status : undefined }
       });
-      const data = res?.data || res;
-      if (Array.isArray(data)) {
-        setClaims(data);
-      } else if (data?.rows) {
-        setClaims(data.rows);
+      const raw = res?.data || res;
+      let rows = [];
+      if (Array.isArray(raw)) {
+        rows = raw;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        rows = raw.data;
+      } else if (raw?.rows) {
+        rows = raw.rows;
       }
+      // Map DB field 'customer' → 'customer_name' for frontend
+      setClaims(rows.map(c => ({
+        ...c,
+        customer_name: c.customer_name || c.customer || '',
+      })));
     } catch (err) {
       console.warn('⚠️ [Claims] fetch error:', err.message);
     } finally {
@@ -103,8 +111,10 @@ const KPIClaimEntry = ({ onRefresh }) => {
         ...formData,
         defect_qty: defectQty,
         shipped_qty: shippedQty,
-        ppm: parseFloat(ppm),
+        // ไม่ส่ง ppm — เป็น GENERATED column ใน DB คำนวณเอง
       };
+      // ลบ fields ที่ DB ไม่รับ
+      delete payload.ppm;
 
       if (editingId) {
         await apiClient.patch(`/kpi/claims/${editingId}`, payload);

@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../../../utils/api';
-import { DEFECT_CODES } from './product_categories';
+import { DEFECT_CODES, REWORK_METHODS } from './product_categories';
 
 const SECTIONS = [
   { id: 'production', label: '📊 ผลผลิต', color: '#3b82f6' },

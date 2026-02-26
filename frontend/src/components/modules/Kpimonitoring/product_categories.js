@@ -81,18 +81,48 @@ export const INTERNAL_TARGETS = {
 
 // ─── DEFECT CODES (สำหรับ Categorization & Pareto) ───────────────
 export const DEFECT_CODES = [
-  { code: 'DIM-001', name: 'ขนาดเกินพิกัด', nameEn: 'Dimension Out of Spec', category: 'dimensional', severity: 'critical' },
-  { code: 'DIM-002', name: 'รูเยื้องศูนย์', nameEn: 'Hole Position Error', category: 'dimensional', severity: 'critical' },
-  { code: 'DIM-003', name: 'ความกลมไม่ได้', nameEn: 'Roundness Out', category: 'dimensional', severity: 'major' },
-  { code: 'SUR-001', name: 'รอยขีดข่วน', nameEn: 'Scratch', category: 'surface', severity: 'major' },
-  { code: 'SUR-002', name: 'ผิวไม่เรียบ', nameEn: 'Surface Roughness', category: 'surface', severity: 'major' },
-  { code: 'SUR-003', name: 'รอยกดทับ', nameEn: 'Dent', category: 'surface', severity: 'minor' },
-  { code: 'SUR-004', name: 'เศษครีบ', nameEn: 'Burr', category: 'surface', severity: 'minor' },
-  { code: 'MAT-001', name: 'วัตถุดิบไม่ได้มาตรฐาน', nameEn: 'Material Defect', category: 'material', severity: 'critical' },
-  { code: 'MAT-002', name: 'ความแข็งไม่ผ่าน', nameEn: 'Hardness Fail', category: 'material', severity: 'major' },
-  { code: 'PRO-001', name: 'ทำงานผิดขั้นตอน', nameEn: 'Process Error', category: 'process', severity: 'major' },
-  { code: 'PRO-002', name: 'เครื่องจักรเสีย', nameEn: 'Machine Breakdown', category: 'process', severity: 'critical' },
-  { code: 'OTH-001', name: 'อื่นๆ', nameEn: 'Others', category: 'other', severity: 'minor' },
+  // ─── Process (กระบวนการ) ───
+  { code: 'PRO-001', name: 'Trial', nameEn: 'Trial', category: 'process', severity: 'minor' },
+  { code: 'PRO-002', name: 'Block NG', nameEn: 'Block NG', category: 'process', severity: 'major' },
+  { code: 'PRO-003', name: 'Pre-forg NG', nameEn: 'Pre-forg NG', category: 'process', severity: 'major' },
+  { code: 'PRO-004', name: 'Trim Mistake', nameEn: 'Trim Mistake', category: 'process', severity: 'major' },
+  { code: 'PRO-005', name: 'Burr', nameEn: 'Burr', category: 'process', severity: 'minor' },
+  // ─── Dimensional (มิติ/ขนาด) ───
+  { code: 'DIM-001', name: 'Lower Spec', nameEn: 'Lower Spec', category: 'dimensional', severity: 'critical' },
+  { code: 'DIM-002', name: 'Over Spec', nameEn: 'Over Spec', category: 'dimensional', severity: 'critical' },
+  { code: 'DIM-003', name: 'Mismatch', nameEn: 'Mismatch', category: 'dimensional', severity: 'major' },
+  { code: 'DIM-004', name: 'Dis Center', nameEn: 'Dis Center', category: 'dimensional', severity: 'major' },
+  // ─── Appearance (ลักษณะภายนอก) ───
+  { code: 'APP-001', name: 'Short Shot', nameEn: 'Short Shot', category: 'appearance', severity: 'critical' },
+  { code: 'APP-002', name: 'Crack', nameEn: 'Crack', category: 'appearance', severity: 'critical' },
+  { code: 'APP-003', name: 'Nick', nameEn: 'Nick', category: 'appearance', severity: 'major' },
+  { code: 'APP-004', name: 'Scale', nameEn: 'Scale', category: 'appearance', severity: 'minor' },
+  { code: 'APP-005', name: 'Deep Scale', nameEn: 'Deep Scale', category: 'appearance', severity: 'major' },
+  { code: 'APP-006', name: 'Die Worn', nameEn: 'Die Worn', category: 'appearance', severity: 'major' },
+  { code: 'APP-007', name: 'Bending', nameEn: 'Bending', category: 'appearance', severity: 'major' },
+  { code: 'APP-008', name: 'Short Shot Small', nameEn: 'Short Shot Small', category: 'appearance', severity: 'minor' },
+  { code: 'APP-009', name: 'Other', nameEn: 'Other', category: 'appearance', severity: 'minor' },
+];
+
+// ─── DEFECT CATEGORIES ──────────────────────────────────────────
+export const DEFECT_CATEGORIES = [
+  { id: 'process', name: 'Process', nameTh: 'กระบวนการ', color: '#f59e0b', icon: '⚙️' },
+  { id: 'dimensional', name: 'Dimensional', nameTh: 'มิติ/ขนาด', color: '#3b82f6', icon: '📐' },
+  { id: 'appearance', name: 'Appearance', nameTh: 'ลักษณะภายนอก', color: '#8b5cf6', icon: '👁️' },
+];
+
+// ─── REWORK METHODS (วิธีซ่อมชิ้นงาน) ──────────────────────────
+export const REWORK_METHODS = [
+  { code: 'RW-001', name: 'Welding', nameTh: 'เชื่อม', icon: '🔥' },
+  { code: 'RW-002', name: 'Grinding', nameTh: 'เจียร', icon: '⚡' },
+  { code: 'RW-003', name: 'Shotblast', nameTh: 'ยิงทราย', icon: '💨' },
+  { code: 'RW-004', name: 'Drilling', nameTh: 'เจาะ', icon: '🔩' },
+  { code: 'RW-005', name: 'Trimming', nameTh: 'ตัดแต่ง', icon: '✂️' },
+  { code: 'RW-006', name: 'Heat Treatment', nameTh: 'อบชุบ', icon: '🌡️' },
+  { code: 'RW-007', name: 'Cold Coin', nameTh: 'ตีเย็น', icon: '❄️' },
+  { code: 'RW-008', name: 'Special Used', nameTh: 'ใช้พิเศษ', icon: '⭐' },
+  { code: 'RW-009', name: 'Machine', nameTh: 'กลึง', icon: '🔧' },
+  { code: 'RW-010', name: 'Other', nameTh: 'อื่นๆ', icon: '📝' },
 ];
 
 // ─── DISPOSITION TYPES (การจัดการชิ้นงาน) ────────────────────────
@@ -164,8 +194,9 @@ export const PRODUCT_LINES = [
 
 // ─── SHIFT DEFINITIONS ───────────────────────────────────────────
 export const SHIFTS = {
-  A: { id: 'A', label: 'Shift A (Day)', start: '06:00', end: '18:00' },
-  B: { id: 'B', label: 'Shift B (Night)', start: '18:00', end: '06:00' },
+  A: { id: 'A', label: 'Shift A (Day)', start: '06:00', end: '18:00' },B: { id: 'B', label: 'Shift B (Night)', start: '18:00', end: '06:00' },
+  
+  AB: { id: 'AB', label: 'Shift AB ', start: '18:00', end: '06:00' },
 };
 
 // ─── HELPER: เช็คสถานะ KPI ───────────────────────────────────────

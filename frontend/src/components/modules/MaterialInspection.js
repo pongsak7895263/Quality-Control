@@ -723,6 +723,8 @@ const MaterialInspection = () => {
     "Nippon Steel Trading (Thailand) Co., Ltd",
     "KITATI INDUSTRY",
     "Kanehira Steel (Thailand) Co., Ltd.)",
+    "Bangkok Steel Co., Ltd.",
+    "FBT Co., Ltd.",
   ], []);
 
   const makerOptions = useMemo(() => [

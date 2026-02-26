@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../../utils/api';
-import { DEFECT_CODES } from './product_categories';
+import { DEFECT_CODES, REWORK_METHODS } from './product_categories';
 
 const KPIDataEntry = ({ onSubmitSuccess }) => {
   const [lines, setLines] = useState([]);
@@ -33,6 +33,41 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [recentSubmissions, setRecentSubmissions] = useState([]);
   const [errors, setErrors] = useState({});
+  const [partInfo, setPartInfo] = useState(null);
+  const [partLookupTimer, setPartLookupTimer] = useState(null);
+
+  // ─── Part Master Lookup ───────────────────────────────────────
+  const lookupPart = async (partNumber) => {
+    if (!partNumber || partNumber.length < 2) { setPartInfo(null); return; }
+    try {
+      const res = await apiClient.get(`/kpi/parts/lookup/${encodeURIComponent(partNumber)}`);
+      console.log('[Lookup] raw:', res);
+      
+      // Handle: axios res.data.data, apiClient unwrap res.data, or direct
+      let data = null;
+      if (res?.data?.data) data = res.data.data;           // axios: {data: {success, data: {...}}}
+      else if (res?.data && res?.data?.part_number) data = res.data;  // apiClient unwrap: {success, data: {...}} → data={...}
+      else if (res?.part_number) data = res;                // direct object
+      else if (res?.success && res?.data) data = res.data;  // {success:true, data:{...}}
+      
+      console.log('[Lookup] parsed:', data?.part_number, data?.part_name);
+      setPartInfo(data);
+      if (data?.primary_line && !formData.line) {
+        handleChange('line', data.primary_line);
+      }
+    } catch (err) {
+      console.error('[Lookup] error:', err);
+      setPartInfo(null);
+    }
+  };
+
+  const handlePartNumberChange = (val) => {
+    handleChange('partNumber', val);
+    setPartInfo(null);
+    // Debounce: lookup หลังหยุดพิมพ์ 500ms
+    if (partLookupTimer) clearTimeout(partLookupTimer);
+    setPartLookupTimer(setTimeout(() => lookupPart(val), 500));
+  };
 
   // ─── Fetch Lines ──────────────────────────────────────────────
   useEffect(() => {
@@ -87,6 +122,7 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
       specValue: '',
       detail: '',
       reworkResult: 'pending',
+      reworkMethod: '',       // วิธีซ่อม
     }]);
   };
 
@@ -141,6 +177,7 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
     try {
       const payload = {
         machine_code: formData.line, part_number: formData.partNumber,
+        part_name: partInfo ? partInfo.part_name : (formData.partName || null),
         lot_number: formData.lotNumber || null, shift: formData.shift,
         operator_name: formData.operator, inspector_name: formData.inspector || null,
         product_line_code: formData.productLine || null,
@@ -161,6 +198,7 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
           spec_value: d.specValue || null,
           detail: d.detail || null,
           rework_result: d.defectType === 'rework' ? d.reworkResult : null,
+          rework_method: d.defectType === 'rework' ? d.reworkMethod : null,
         })),
       };
       await apiClient.post('/kpi/production', payload);
@@ -238,10 +276,20 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
                 </div>
                 <div>
                   <label style={S.label}>Part No. *</label>
-                  <input style={{ ...S.input, ...(errors.partNumber ? S.inputErr : {}) }}
-                    placeholder="e.g. W10-30-A" value={formData.partNumber}
-                    onChange={e => handleChange('partNumber', e.target.value)} />
+                  <input style={{ ...S.input, ...(errors.partNumber ? S.inputErr : {}), ...(partInfo ? { borderColor: '#10b981' } : {}) }}
+                    placeholder="e.g. W21-04" value={formData.partNumber}
+                    onChange={e => handlePartNumberChange(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && lookupPart(formData.partNumber)} />
                   {errors.partNumber && <div style={S.err}>{errors.partNumber}</div>}
+                  {partInfo && <div style={{ fontSize: 10, color: '#10b981', marginTop: 2 }}>✅ {partInfo.part_name}</div>}
+                  {formData.partNumber && !partInfo && <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>💡 ยังไม่พบใน Part Master</div>}
+                </div>
+                <div>
+                  <label style={S.label}>Part Name</label>
+                  <input style={{ ...S.input, background: partInfo ? '#0f172a' : '#1e293b', color: partInfo ? '#10b981' : '#64748b' }}
+                    readOnly={!!partInfo} placeholder={partInfo ? '' : 'ระบุ หรือเลือกจาก Part Master'}
+                    value={partInfo ? partInfo.part_name : (formData.partName || '')}
+                    onChange={e => !partInfo && handleChange('partName', e.target.value)} />
                 </div>
                 <div>
                   <label style={S.label}>Lot No.</label>
@@ -280,6 +328,24 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
               </div>
             </div>
           </div>
+
+          {/* Part Info Card */}
+          {partInfo && (
+            <div style={{ ...S.panel, borderColor: '#10b98140' }}>
+              <div style={{ padding: '10px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>📦 {partInfo.part_number} — {partInfo.part_name}</span>
+                {partInfo.customer_name && <span style={{ color: '#94a3b8', fontSize: 11 }}>👤 {partInfo.customer_name}</span>}
+                {partInfo.heat_treatment_type && (
+                  <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: '#f59e0b20', color: '#f59e0b' }}>
+                    🌡️ {partInfo.heat_treatment_type} {partInfo.hardness_spec ? `| ${partInfo.hardness_spec}` : ''}
+                  </span>
+                )}
+                {partInfo.billet_size && <span style={{ color: '#94a3b8', fontSize: 11 }}>🔩 {partInfo.billet_size} {partInfo.billet_weight ? `(${partInfo.billet_weight}g)` : ''}</span>}
+                {partInfo.heat_treatment_supplier && <span style={{ color: '#94a3b8', fontSize: 11 }}>🏭 ชุบ: {partInfo.heat_treatment_supplier}</span>}
+                {partInfo.primary_line && <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: '#3b82f620', color: '#3b82f6' }}>Line: {partInfo.primary_line}</span>}
+              </div>
+            </div>
+          )}
 
           {/* ยอดผลิต */}
           <div style={S.panel}>
@@ -450,6 +516,23 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
                       </div>
                     )}
                   </div>
+                  {/* วิธีซ่อม (แสดงเฉพาะ rework) */}
+                  {item.defectType === 'rework' && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={{ ...S.label, color: '#f59e0b' }}>🔧 วิธีซ่อม (Rework Method)</label>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {REWORK_METHODS.map(m => (
+                          <button key={m.code} onClick={() => updateDefectItem(item.id, 'reworkMethod', m.code)}
+                            style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                              background: item.reworkMethod === m.code ? '#f59e0b' : '#0f172a',
+                              color: item.reworkMethod === m.code ? '#000' : '#64748b',
+                              border: `1px solid ${item.reworkMethod === m.code ? '#f59e0b' : '#334155'}` }}>
+                            {m.icon} {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Row 2: จำนวนพบ + คัดแยก */}
                   <div style={{ ...S.grid(4), marginTop: 10, padding: 10, background: '#0f172a', borderRadius: 6 }}>

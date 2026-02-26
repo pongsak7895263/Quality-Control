@@ -67,6 +67,15 @@ router.get('/claims',          kpi.getClaims);
 router.post('/actions',        kpi.createActionPlan);
 router.get('/actions',         kpi.getActionPlans);
 
+// ─── Part Master Management ✅ NEW ──────────────────────────
+const parts = require('../controllers/partMasterController');
+router.get('/parts',                parts.listParts);
+router.get('/parts/lookup/:partNumber', parts.lookupPart);
+router.get('/parts/:id',           parts.getPart);
+router.post('/parts',              parts.createPart);
+router.patch('/parts/:id',         parts.updatePart);
+router.delete('/parts/:id',        parts.deletePart);
+
 // ─── Edit / แก้ไขข้อมูล ✅ NEW ─────────────────────────────
 const edit = require('../controllers/kpiEditController');
 router.get('/edit/production',         edit.listProduction);

@@ -192,26 +192,72 @@ const getKpiValues = async (req, res) => {
       GROUP BY claim_category
     `, [startDate, endDate]);
 
-    // Internal rates
+    // Internal rates — จาก daily_production_summary (ข้อมูลจริง)
     const internalResult = await query(`
       SELECT
-        CASE 
-          WHEN pl.claim_category = 'machining' THEN 'machining'
-          ELSE 'production'
-        END AS group_name,
-        SUM(ie.quantity) AS total,
-        SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END) AS rework_qty,
-        SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END) AS scrap_qty,
-        CASE WHEN SUM(ie.quantity) > 0 
-          THEN ROUND((SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END)::DECIMAL / SUM(ie.quantity)) * 100, 4)
+        COALESCE(
+          CASE 
+            WHEN m.code LIKE '%MC%' OR m.code LIKE '%CNC%' THEN 'machining'
+            ELSE 'production'
+          END, 'production'
+        ) AS group_name,
+        SUM(dps.total_produced) AS total,
+        SUM(dps.rework_qty) AS rework_qty,
+        SUM(dps.scrap_qty) AS scrap_qty,
+        SUM(dps.good_qty) AS good_qty,
+        SUM(dps.rework_good_qty) AS rework_good_qty,
+        SUM(dps.rework_scrap_qty) AS rework_scrap_qty,
+        CASE WHEN SUM(dps.total_produced) > 0 
+          THEN ROUND((SUM(dps.rework_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 4)
           ELSE 0 END AS rework_pct,
-        CASE WHEN SUM(ie.quantity) > 0 
-          THEN ROUND((SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END)::DECIMAL / SUM(ie.quantity)) * 100, 4)
+        CASE WHEN SUM(dps.total_produced) > 0 
+          THEN ROUND((SUM(dps.scrap_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 4)
           ELSE 0 END AS scrap_pct
-      FROM inspection_entries ie
-      LEFT JOIN product_lines pl ON ie.product_line_id = pl.id
-      WHERE ie.inspected_at::DATE BETWEEN $1 AND $2
+      FROM daily_production_summary dps
+      JOIN machines m ON dps.machine_id = m.id
+      WHERE dps.production_date BETWEEN $1 AND $2
       GROUP BY group_name
+    `, [startDate, endDate]);
+
+    // Detail: rework/scrap by part (สำหรับ drill-down)
+    const detailResult = await query(`
+      SELECT
+        dps.part_number, dps.part_name,
+        m.code AS line_no,
+        SUM(dps.total_produced) AS total_produced,
+        SUM(dps.good_qty) AS good_qty,
+        SUM(dps.rework_qty) AS rework_qty,
+        SUM(dps.scrap_qty) AS scrap_qty,
+        SUM(dps.rework_good_qty) AS rework_good_qty,
+        SUM(dps.rework_scrap_qty) AS rework_scrap_qty,
+        CASE WHEN SUM(dps.total_produced) > 0 
+          THEN ROUND((SUM(dps.rework_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 2)
+          ELSE 0 END AS rework_pct,
+        CASE WHEN SUM(dps.total_produced) > 0 
+          THEN ROUND((SUM(dps.scrap_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 2)
+          ELSE 0 END AS scrap_pct
+      FROM daily_production_summary dps
+      JOIN machines m ON dps.machine_id = m.id
+      WHERE dps.production_date BETWEEN $1 AND $2
+      GROUP BY dps.part_number, dps.part_name, m.code
+      ORDER BY SUM(dps.rework_qty) + SUM(dps.scrap_qty) DESC
+      LIMIT 20
+    `, [startDate, endDate]);
+
+    // Top defect codes
+    const defectDetail = await query(`
+      SELECT
+        dd.defect_code_id, dc.code AS defect_code, dc.name AS defect_name, dc.category,
+        dd.defect_type,
+        COUNT(*) AS count,
+        SUM(dd.quantity) AS total_qty
+      FROM defect_detail dd
+      LEFT JOIN defect_codes dc ON dd.defect_code_id = dc.id
+      JOIN daily_production_summary dps ON dd.summary_id = dps.id
+      WHERE dps.production_date BETWEEN $1 AND $2
+      GROUP BY dd.defect_code_id, dc.code, dc.name, dc.category, dd.defect_type
+      ORDER BY SUM(dd.quantity) DESC
+      LIMIT 20
     `, [startDate, endDate]);
 
     // Targets
@@ -225,6 +271,8 @@ const getKpiValues = async (req, res) => {
       data: {
         claims: claimResult.rows,
         internal: internalResult.rows,
+        detail: detailResult.rows,
+        defects: defectDetail.rows,
         targets: targetsResult.rows,
         period: { startDate, endDate },
       },

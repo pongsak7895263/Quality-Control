@@ -16,7 +16,8 @@ const createProduction = async (req, res) => {
     await client.query('BEGIN');
 
     const {
-      machine_code, part_number, lot_number, shift,
+      production_date, doc_number,
+      machine_code, part_number, part_name, lot_number, shift,
       operator_name, inspector_name, product_line_code,
       total_produced, good_qty, rework_qty, scrap_qty,
       rework_good_qty = 0, rework_scrap_qty = 0, rework_pending_qty = 0,
@@ -38,15 +39,16 @@ const createProduction = async (req, res) => {
     }
     const machineId = machineRes.rows[0].id;
 
-    const today = new Date().toISOString().split('T')[0];
+    const prodDate = production_date || new Date().toISOString().split('T')[0];
 
     // Upsert daily_production_summary
     const upsertRes = await client.query(`
       INSERT INTO daily_production_summary (
-        production_date, machine_id, part_number, shift, operator_name,
+        production_date, machine_id, part_number, part_name, shift, operator_name,
+        inspector_name, lot_number, doc_number,
         total_produced, good_qty, rework_qty, scrap_qty,
         rework_good_qty, rework_scrap_qty, rework_pending_qty, notes
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       ON CONFLICT (production_date, machine_id, part_number, shift)
       DO UPDATE SET
         total_produced = daily_production_summary.total_produced + EXCLUDED.total_produced,
@@ -57,18 +59,34 @@ const createProduction = async (req, res) => {
         rework_scrap_qty = daily_production_summary.rework_scrap_qty + EXCLUDED.rework_scrap_qty,
         rework_pending_qty = daily_production_summary.rework_pending_qty + EXCLUDED.rework_pending_qty,
         operator_name = EXCLUDED.operator_name,
+        inspector_name = COALESCE(EXCLUDED.inspector_name, daily_production_summary.inspector_name),
+        lot_number = COALESCE(EXCLUDED.lot_number, daily_production_summary.lot_number),
+        doc_number = COALESCE(EXCLUDED.doc_number, daily_production_summary.doc_number),
+        part_name = COALESCE(EXCLUDED.part_name, daily_production_summary.part_name),
         notes = CASE WHEN EXCLUDED.notes IS NOT NULL 
           THEN COALESCE(daily_production_summary.notes || '; ', '') || EXCLUDED.notes
           ELSE daily_production_summary.notes END,
         updated_at = NOW()
       RETURNING *
     `, [
-      today, machineId, part_number, shift || 'A', operator_name,
+      prodDate, machineId, part_number, part_name || null, shift || 'A', operator_name,
+      inspector_name || null, lot_number || null, doc_number || null,
       total_produced, good_qty || 0, rework_qty || 0, scrap_qty || 0,
       rework_good_qty, rework_scrap_qty, rework_pending_qty, remark,
     ]);
 
     const summaryId = upsertRes.rows[0].id;
+
+    // Insert inspected bins
+    const { inspected_bins = [] } = req.body;
+    for (const bin of inspected_bins) {
+      if (bin.bin_no) {
+        await client.query(`
+          INSERT INTO inspected_bins (summary_id, bin_no, qty, result)
+          VALUES ($1, $2, $3, $4)
+        `, [summaryId, bin.bin_no, parseInt(bin.qty) || 0, bin.result || 'good']);
+      }
+    }
 
     // Insert defect details
     for (const item of defect_items) {

@@ -17,6 +17,7 @@ import KPIClaimEntry from './KPIClaimEntry';
 import KPIReport from './KPIReport';
 import KPIEditData from './KPIEditData';
 import KPIPartMaster from './KPIPartMaster';
+import KPIProductionLog from './KPIProductionLog';
 import apiClient from '../../../utils/api';
 import { calculatePPM, calculatePercent } from '../../../utils/calculations';
 import {
@@ -153,6 +154,8 @@ const transformApiData = (dashboardRes, valuesRes) => {
       machining:  claimsMap.machining  || { actual: 0, shipped: 0 },
     },
     internal: { productionRework: prodRework, machiningRework: machRework, productionScrap: prodScrap },
+    detail: valuesRes?.detail || [],
+    defects: valuesRes?.defects || [],
     andonAlerts,
     recentEntries,
   };
@@ -186,6 +189,8 @@ const KPIDashboard = () => {
     },
     andonAlerts: [],
     recentEntries: [],
+    detail: [],
+    defects: [],
   });
 
   // ─── Clock ───────────────────────────────────────────────────
@@ -258,7 +263,7 @@ const KPIDashboard = () => {
     fetchDashboardData();
 
     // ✅ ไม่ auto-refresh ถ้าอยู่ tab บันทึกข้อมูล/claim (ป้องกันฟอร์ม reset)
-    if (activeTab === 'entry' || activeTab === 'claim' || activeTab === 'report' || activeTab === 'edit' || activeTab === 'parts') return;
+    if (activeTab === 'entry' || activeTab === 'claim' || activeTab === 'report' || activeTab === 'edit' || activeTab === 'parts' || activeTab === 'prodlog') return;
 
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
@@ -296,6 +301,7 @@ const KPIDashboard = () => {
     { id: 'claim', label: 'Claim', icon: '📮' },
     { id: 'report', label: 'รายงาน', icon: '📄' },
     { id: 'edit', label: 'แก้ไขข้อมูล', icon: '✏️' },
+    { id: 'prodlog', label: 'ยอดผลิต', icon: '🏭' },
     { id: 'parts', label: 'Part Master', icon: '📦' },
   ];
 
@@ -413,6 +419,10 @@ const KPIDashboard = () => {
                 internalTargets={INTERNAL_TARGETS}
                 recentEntries={dashboardData.recentEntries}
                 andonAlerts={dashboardData.andonAlerts}
+                detail={dashboardData.detail || []}
+                defects={dashboardData.defects || []}
+                claimsData={dashboardData.claims}
+                internalData={dashboardData.internal}
               />
             )}
             {activeTab === 'trends' && (
@@ -435,6 +445,9 @@ const KPIDashboard = () => {
             )}
             {activeTab === 'edit' && (
               <KPIEditData onRefresh={fetchDashboardData} />
+            )}
+            {activeTab === 'prodlog' && (
+              <KPIProductionLog />
             )}
             {activeTab === 'parts' && (
               <KPIPartMaster />

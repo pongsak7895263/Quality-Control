@@ -186,6 +186,7 @@ export const CSL_LEVELS = {
 export const PRODUCT_LINES = [
   { id: 'forging-auto', name: 'Forging - Automotive', category: 'automotive' },
   { id: 'forging-ind', name: 'Forging - Industrial', category: 'industrial' },
+  { id: 'forging-ind', name: 'Forging - Industrial', category: 'industrial' },
   { id: 'machining-auto', name: 'Machining - Automotive', category: 'machining' },
   { id: 'machining-ind', name: 'Machining - Industrial', category: 'machining' },
   { id: 'heat-treat', name: 'Heat Treatment', category: 'industrial' },

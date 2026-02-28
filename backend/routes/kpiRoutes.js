@@ -91,4 +91,11 @@ router.get('/export/pdf',      exportCtrl.exportPDF);
 router.get('/export/excel',    exportCtrl.exportExcel);
 router.get('/export/data',     exportCtrl.exportData);
 
+// ─── Production Log (ยอดผลิต — สายการผลิต) ✅ NEW ──────
+const prodLog = require('../controllers/productionLogController');
+router.post('/production-log',              prodLog.createLog);
+router.get('/production-log',               prodLog.getLogs);
+router.get('/production-log/lookup',        prodLog.lookupByPartLot);
+router.delete('/production-log/:id',        prodLog.deleteLog);
+
 module.exports = router;

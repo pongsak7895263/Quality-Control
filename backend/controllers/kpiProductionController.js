@@ -22,32 +22,96 @@ const createProduction = async (req, res) => {
       total_produced, good_qty, rework_qty, scrap_qty,
       rework_good_qty = 0, rework_scrap_qty = 0, rework_pending_qty = 0,
       remark, defect_items = [],
+      import_mode, // 'replace' = SET ค่าใหม่ (ไม่ ADD ซ้อน)
     } = req.body;
 
-    // Validation
-    if (!machine_code || !part_number || !operator_name || !total_produced) {
+    // Validation — total_produced อนุญาต 0 ได้ (F07 import บันทึกเฉพาะของเสีย)
+    if (!machine_code || !part_number || !operator_name) {
       return res.status(400).json({
         success: false,
-        error: 'Required: machine_code, part_number, operator_name, total_produced',
+        error: 'Required: machine_code, part_number, operator_name',
       });
     }
 
-    // Resolve machine ID
-    const machineRes = await client.query('SELECT id FROM machines WHERE code = $1', [machine_code]);
+    // Resolve machine ID — ยืดหยุ่น: ลอง exact → strip prefix → auto-create
+    let machineRes = await client.query('SELECT id FROM machines WHERE code = $1', [machine_code]);
+    
     if (machineRes.rows.length === 0) {
-      return res.status(400).json({ success: false, error: `Machine not found: ${machine_code}` });
+      // ลองตัด "Line-" ออก: "Line-1" → "1", "Line-MC" → "MC"
+      const stripped = machine_code.replace(/^Line-?/i, '').trim();
+      if (stripped !== machine_code) {
+        machineRes = await client.query('SELECT id FROM machines WHERE code = $1', [stripped]);
+      }
     }
+
+    if (machineRes.rows.length === 0) {
+      // ลอง LIKE: "Line-1" → '%1%'
+      const stripped = machine_code.replace(/^Line-?/i, '').trim();
+      machineRes = await client.query(
+        "SELECT id FROM machines WHERE code ILIKE $1 OR code ILIKE $2 LIMIT 1",
+        [machine_code, `%${stripped}%`]
+      );
+    }
+
+    if (machineRes.rows.length === 0) {
+      // Auto-create machine ถ้าไม่มี
+      machineRes = await client.query(
+        `INSERT INTO machines (code, name, machine_type, status)
+         VALUES ($1, $2, 'production', 'active')
+         ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
+         RETURNING id`,
+        [machine_code, `Machine ${machine_code}`]
+      );
+    }
+
     const machineId = machineRes.rows[0].id;
 
     const prodDate = production_date || new Date().toISOString().split('T')[0];
 
     // Upsert daily_production_summary
+    // import_mode = 'replace': ลบข้อมูลเก่าก่อน → INSERT ใหม่ (ป้องกัน import ซ้ำ)
+    // import_mode อื่น: ADD สะสม (ปกติ)
+    const isReplace = import_mode === 'replace';
+
+    if (isReplace) {
+      // ลบ defect_detail + inspected_bins + dps เก่า ก่อน INSERT ใหม่
+      const oldDps = await client.query(
+        `SELECT id FROM daily_production_summary 
+         WHERE production_date = $1 AND machine_id = $2 AND part_number = $3 AND shift = $4`,
+        [prodDate, machineId, part_number, shift || 'A']
+      );
+      for (const old of oldDps.rows) {
+        await client.query('DELETE FROM defect_detail WHERE summary_id = $1', [old.id]);
+        await client.query('DELETE FROM inspected_bins WHERE summary_id = $1', [old.id]);
+        await client.query('DELETE FROM daily_production_summary WHERE id = $1', [old.id]);
+      }
+      // ลบ inspection_entries เก่า (ถ้า table มี created_at)
+      try {
+        await client.query(
+          `DELETE FROM inspection_entries 
+           WHERE machine_id = $1 AND part_number = $2 AND shift = $3
+           AND operator_name = 'Import F07'`,
+          [machineId, part_number, shift || 'A']
+        );
+      } catch (delErr) {
+        console.warn('[KPI] Could not clean inspection_entries:', delErr.message);
+      }
+    }
+
+    // ── ตรวจว่า column ชื่อ notes หรือ remark ──
+    let notesCol = 'notes';
+    try {
+      await client.query(`SELECT notes FROM daily_production_summary LIMIT 0`);
+    } catch {
+      notesCol = 'remark'; // fallback ถ้าไม่มี notes column
+    }
+
     const upsertRes = await client.query(`
       INSERT INTO daily_production_summary (
         production_date, machine_id, part_number, part_name, shift, operator_name,
         inspector_name, lot_number, doc_number,
         total_produced, good_qty, rework_qty, scrap_qty,
-        rework_good_qty, rework_scrap_qty, rework_pending_qty, notes
+        rework_good_qty, rework_scrap_qty, rework_pending_qty, ${notesCol}
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       ON CONFLICT (production_date, machine_id, part_number, shift)
       DO UPDATE SET
@@ -63,9 +127,9 @@ const createProduction = async (req, res) => {
         lot_number = COALESCE(EXCLUDED.lot_number, daily_production_summary.lot_number),
         doc_number = COALESCE(EXCLUDED.doc_number, daily_production_summary.doc_number),
         part_name = COALESCE(EXCLUDED.part_name, daily_production_summary.part_name),
-        notes = CASE WHEN EXCLUDED.notes IS NOT NULL 
-          THEN COALESCE(daily_production_summary.notes || '; ', '') || EXCLUDED.notes
-          ELSE daily_production_summary.notes END,
+        ${notesCol} = CASE WHEN EXCLUDED.${notesCol} IS NOT NULL 
+          THEN COALESCE(daily_production_summary.${notesCol} || '; ', '') || EXCLUDED.${notesCol}
+          ELSE daily_production_summary.${notesCol} END,
         updated_at = NOW()
       RETURNING *
     `, [
@@ -124,7 +188,6 @@ const createProduction = async (req, res) => {
     if ((scrap_qty || 0) > 0) dispositions.push({ type: 'SCRAP', qty: scrap_qty });
 
     for (const d of dispositions) {
-      // Find defect code for non-GOOD entries
       let defectCodeId = null;
       if (d.type !== 'GOOD' && defect_items.length > 0) {
         const firstMatch = defect_items.find(di => 
@@ -137,17 +200,20 @@ const createProduction = async (req, res) => {
         }
       }
 
-      await client.query(`
-        INSERT INTO inspection_entries (
-          machine_id, part_number, lot_number, quantity,
-          disposition, defect_code_id, operator_name, shift,
-          total_produced, rework_good_qty
-        ) VALUES ($1,$2,$3,$4,$5::disposition_type,$6,$7,$8,$9,$10)
-      `, [
-        machineId, part_number, lot_number, d.qty,
-        d.type, defectCodeId, operator_name, shift || 'A',
-        total_produced, rework_good_qty,
-      ]);
+      try {
+        await client.query(`
+          INSERT INTO inspection_entries (
+            machine_id, part_number, lot_number, quantity,
+            disposition, defect_code_id, operator_name, shift
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `, [
+          machineId, part_number, lot_number, d.qty,
+          d.type, defectCodeId, operator_name, shift || 'A',
+        ]);
+      } catch (ieErr) {
+        console.warn('[KPI] inspection_entries insert failed:', ieErr.message);
+        // ไม่ throw — ให้ dps + defect_detail ยังคง save ได้
+      }
     }
 
     await client.query('COMMIT');
@@ -170,7 +236,7 @@ const createProduction = async (req, res) => {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('[KPI] createProduction error:', error.message);
+    console.error('[KPI] createProduction error:', error.message, '\n  Detail:', error.detail || '', '\n  Hint:', error.hint || '', '\n  Query:', error.query || '');
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();

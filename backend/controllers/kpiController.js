@@ -58,23 +58,31 @@ const transaction = async (callback) => {
  */
 const getDashboard = async (req, res) => {
   try {
-    const { dateRange = 'today', shift = 'ALL', line = 'ALL' } = req.query;
+    const { dateRange = 'today', shift = 'ALL', line = 'ALL', month, date: specificDate } = req.query;
 
     // Build date filter
     let dateFilter;
     const now = new Date();
-    switch (dateRange) {
-      case 'today':
-        dateFilter = `inspected_at::DATE = CURRENT_DATE`;
-        break;
-      case 'mtd':
-        dateFilter = `inspected_at >= DATE_TRUNC('month', CURRENT_DATE)`;
-        break;
-      case 'ytd':
-        dateFilter = `inspected_at >= DATE_TRUNC('year', CURRENT_DATE)`;
-        break;
-      default:
-        dateFilter = `inspected_at::DATE = CURRENT_DATE`;
+    if (specificDate) {
+      dateFilter = `inspected_at::DATE = '${specificDate}'`;
+    } else if (month) {
+      const [yr, mo] = month.split('-');
+      const lastDay = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+      dateFilter = `inspected_at::DATE BETWEEN '${month}-01' AND '${month}-${String(lastDay).padStart(2, '0')}'`;
+    } else {
+      switch (dateRange) {
+        case 'today':
+          dateFilter = `inspected_at::DATE = CURRENT_DATE`;
+          break;
+        case 'mtd':
+          dateFilter = `inspected_at >= DATE_TRUNC('month', CURRENT_DATE)`;
+          break;
+        case 'ytd':
+          dateFilter = `inspected_at >= DATE_TRUNC('year', CURRENT_DATE)`;
+          break;
+        default:
+          dateFilter = `inspected_at::DATE = CURRENT_DATE`;
+      }
     }
 
     const shiftFilter = shift !== 'ALL' ? `AND shift = $1` : '';
@@ -153,27 +161,41 @@ const getDashboard = async (req, res) => {
 /**
  * GET /api/kpi/values
  * ดึงค่า KPI ทั้งหมดสำหรับช่วงเวลาที่กำหนด
+ * ยอดผลิต: production_log (ฝ่ายผลิต)
+ * ของเสีย: daily_production_summary (QC / F07)
  */
 const getKpiValues = async (req, res) => {
   try {
-    const { dateRange = 'mtd' } = req.query;
+    const { dateRange = 'mtd', month, date: specificDate } = req.query;
 
     let startDate, endDate;
     const now = new Date();
     endDate = now.toISOString().split('T')[0];
 
-    switch (dateRange) {
-      case 'today':
-        startDate = endDate;
-        break;
-      case 'mtd':
-        startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        break;
-      case 'ytd':
-        startDate = `${now.getFullYear()}-01-01`;
-        break;
-      default:
-        startDate = endDate;
+    if (specificDate) {
+      // date = "2026-01-15" → ดูเฉพาะวันนั้น
+      startDate = specificDate;
+      endDate = specificDate;
+    } else if (month) {
+      // month = "2026-01", "2026-02" ฯลฯ
+      const [yr, mo] = month.split('-');
+      const lastDay = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+      startDate = `${month}-01`;
+      endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+    } else {
+      switch (dateRange) {
+        case 'today':
+          startDate = endDate;
+          break;
+        case 'mtd':
+          startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+          break;
+        case 'ytd':
+          startDate = `${now.getFullYear()}-01-01`;
+          break;
+        default:
+          startDate = endDate;
+      }
     }
 
     // Claim PPMs
@@ -192,56 +214,100 @@ const getKpiValues = async (req, res) => {
       GROUP BY claim_category
     `, [startDate, endDate]);
 
-    // Internal rates — จาก daily_production_summary (ข้อมูลจริง)
-    const internalResult = await query(`
+    // ─── ยอดผลิต จาก production_log (ฝ่ายผลิต) ───────────────
+    const prodLogResult = await query(`
       SELECT
-        COALESCE(
-          CASE 
-            WHEN m.code LIKE '%MC%' OR m.code LIKE '%CNC%' THEN 'machining'
-            ELSE 'production'
-          END, 'production'
-        ) AS group_name,
-        SUM(dps.total_produced) AS total,
-        SUM(dps.rework_qty) AS rework_qty,
-        SUM(dps.scrap_qty) AS scrap_qty,
-        SUM(dps.good_qty) AS good_qty,
-        SUM(dps.rework_good_qty) AS rework_good_qty,
-        SUM(dps.rework_scrap_qty) AS rework_scrap_qty,
-        CASE WHEN SUM(dps.total_produced) > 0 
-          THEN ROUND((SUM(dps.rework_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 4)
-          ELSE 0 END AS rework_pct,
-        CASE WHEN SUM(dps.total_produced) > 0 
-          THEN ROUND((SUM(dps.scrap_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 4)
-          ELSE 0 END AS scrap_pct
-      FROM daily_production_summary dps
-      JOIN machines m ON dps.machine_id = m.id
-      WHERE dps.production_date BETWEEN $1 AND $2
-      GROUP BY group_name
+        'production' AS group_name,
+        SUM(pl.total_good) AS prod_good,
+        SUM(pl.total_ng) AS prod_ng,
+        SUM(pl.total_produced) AS prod_total
+      FROM production_log pl
+      WHERE pl.production_date BETWEEN $1 AND $2
     `, [startDate, endDate]);
 
-    // Detail: rework/scrap by part (สำหรับ drill-down)
-    const detailResult = await query(`
+    // ─── ของเสีย จาก daily_production_summary (QC/F07) ────────
+    // ดึงตรงจาก dps โดยไม่ต้อง JOIN machines (ป้องกัน machine_id ไม่ match)
+    const defectSumResult = await query(`
       SELECT
-        dps.part_number, dps.part_name,
-        m.code AS line_no,
-        SUM(dps.total_produced) AS total_produced,
-        SUM(dps.good_qty) AS good_qty,
-        SUM(dps.rework_qty) AS rework_qty,
-        SUM(dps.scrap_qty) AS scrap_qty,
-        SUM(dps.rework_good_qty) AS rework_good_qty,
-        SUM(dps.rework_scrap_qty) AS rework_scrap_qty,
-        CASE WHEN SUM(dps.total_produced) > 0 
-          THEN ROUND((SUM(dps.rework_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 2)
-          ELSE 0 END AS rework_pct,
-        CASE WHEN SUM(dps.total_produced) > 0 
-          THEN ROUND((SUM(dps.scrap_qty)::DECIMAL / SUM(dps.total_produced)) * 100, 2)
-          ELSE 0 END AS scrap_pct
+        'production' AS group_name,
+        COALESCE(SUM(dps.rework_qty), 0) AS rework_qty,
+        COALESCE(SUM(dps.scrap_qty), 0) AS scrap_qty,
+        COALESCE(SUM(dps.rework_good_qty), 0) AS rework_good_qty,
+        COALESCE(SUM(dps.rework_scrap_qty), 0) AS rework_scrap_qty
       FROM daily_production_summary dps
-      JOIN machines m ON dps.machine_id = m.id
       WHERE dps.production_date BETWEEN $1 AND $2
-      GROUP BY dps.part_number, dps.part_name, m.code
-      ORDER BY SUM(dps.rework_qty) + SUM(dps.scrap_qty) DESC
-      LIMIT 20
+    `, [startDate, endDate]);
+
+    // ─── COMBINE: ยอดผลิตจาก production_log + ของเสียจาก QC ──
+    const prodRow = prodLogResult.rows[0] || { prod_good: 0, prod_ng: 0, prod_total: 0 };
+    const defectRow = defectSumResult.rows[0] || { rework_qty: 0, scrap_qty: 0, rework_good_qty: 0, rework_scrap_qty: 0 };
+
+    const totalProduced = parseInt(prodRow.prod_total) || 0;
+    const reworkQty = parseInt(defectRow.rework_qty) || 0;
+    const scrapQty = parseInt(defectRow.scrap_qty) || 0;
+
+    const internalCombined = [{
+      group_name: 'production',
+      total: totalProduced,
+      total_from_prodlog: totalProduced,
+      rework_qty: reworkQty,
+      scrap_qty: scrapQty,
+      good_qty: Math.max(0, totalProduced - reworkQty - scrapQty),
+      rework_good_qty: parseInt(defectRow.rework_good_qty) || 0,
+      rework_scrap_qty: parseInt(defectRow.rework_scrap_qty) || 0,
+      rework_pct: totalProduced > 0 ? parseFloat(((reworkQty / totalProduced) * 100).toFixed(4)) : 0,
+      scrap_pct: totalProduced > 0 ? parseFloat(((scrapQty / totalProduced) * 100).toFixed(4)) : 0,
+    }];
+
+    // ─── Detail by part: ยอดผลิต + ของเสีย ────────────────────
+    // Normalize line: "Line-1" → "Line-1", "1" → "Line-1"
+    const detailResult = await query(`
+      WITH prod AS (
+        SELECT part_number, MAX(part_name) AS part_name, MAX(lot_number) AS lot_number,
+               line AS raw_line,
+               CASE 
+                 WHEN line ILIKE 'Line%' THEN line
+                 ELSE 'Line-' || line
+               END AS norm_line,
+               SUM(total_produced) AS prod_total
+        FROM production_log
+        WHERE production_date BETWEEN $1 AND $2
+        GROUP BY part_number, line
+      ),
+      defect AS (
+        SELECT dps.part_number,
+               CASE 
+                 WHEN m.code ILIKE 'Line%' THEN m.code
+                 ELSE 'Line-' || m.code
+               END AS norm_line,
+               SUM(dps.rework_qty) AS rework_qty,
+               SUM(dps.scrap_qty) AS scrap_qty,
+               SUM(dps.rework_good_qty) AS rework_good_qty,
+               SUM(dps.rework_scrap_qty) AS rework_scrap_qty
+        FROM daily_production_summary dps
+        LEFT JOIN machines m ON dps.machine_id = m.id
+        WHERE dps.production_date BETWEEN $1 AND $2
+        GROUP BY dps.part_number, CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END
+      )
+      SELECT
+        COALESCE(p.part_number, d.part_number) AS part_number,
+        COALESCE(p.part_name, '') AS part_name,
+        COALESCE(p.lot_number, '') AS lot_number,
+        COALESCE(p.norm_line, d.norm_line, '') AS line_no,
+        COALESCE(p.prod_total, 0) AS total_produced,
+        COALESCE(d.rework_qty, 0) AS rework_qty,
+        COALESCE(d.scrap_qty, 0) AS scrap_qty,
+        COALESCE(d.rework_good_qty, 0) AS rework_good_qty,
+        COALESCE(d.rework_scrap_qty, 0) AS rework_scrap_qty,
+        CASE WHEN COALESCE(p.prod_total, 0) > 0
+          THEN ROUND((COALESCE(d.rework_qty, 0)::DECIMAL / p.prod_total) * 100, 2)
+          ELSE 0 END AS rework_pct,
+        CASE WHEN COALESCE(p.prod_total, 0) > 0
+          THEN ROUND((COALESCE(d.scrap_qty, 0)::DECIMAL / p.prod_total) * 100, 2)
+          ELSE 0 END AS scrap_pct
+      FROM prod p
+      FULL OUTER JOIN defect d ON p.part_number = d.part_number AND p.norm_line = d.norm_line
+      ORDER BY COALESCE(d.rework_qty, 0) + COALESCE(d.scrap_qty, 0) DESC
     `, [startDate, endDate]);
 
     // Top defect codes
@@ -257,7 +323,6 @@ const getKpiValues = async (req, res) => {
       WHERE dps.production_date BETWEEN $1 AND $2
       GROUP BY dd.defect_code_id, dc.code, dc.name, dc.category, dd.defect_type
       ORDER BY SUM(dd.quantity) DESC
-      LIMIT 20
     `, [startDate, endDate]);
 
     // Targets
@@ -266,14 +331,49 @@ const getKpiValues = async (req, res) => {
       FROM kpi_targets WHERE is_active = TRUE
     `);
 
+    // ─── Line Summary: ยอดผลิต + ของเสีย แยก Line (ไม่ FULL OUTER JOIN) ─
+    const lineSummaryResult = await query(`
+      WITH prod_by_line AS (
+        SELECT
+          CASE WHEN line ILIKE 'Line%' THEN line ELSE 'Line-' || line END AS line_name,
+          SUM(total_produced) AS total_produced,
+          SUM(total_good) AS total_good,
+          SUM(total_ng) AS total_ng
+        FROM production_log
+        WHERE production_date BETWEEN $1 AND $2
+        GROUP BY CASE WHEN line ILIKE 'Line%' THEN line ELSE 'Line-' || line END
+      ),
+      defect_by_line AS (
+        SELECT
+          CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END AS line_name,
+          SUM(dps.rework_qty) AS rework_qty,
+          SUM(dps.scrap_qty) AS scrap_qty
+        FROM daily_production_summary dps
+        LEFT JOIN machines m ON dps.machine_id = m.id
+        WHERE dps.production_date BETWEEN $1 AND $2
+        GROUP BY CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END
+      )
+      SELECT
+        COALESCE(p.line_name, d.line_name) AS line_no,
+        COALESCE(p.total_produced, 0) AS total_produced,
+        COALESCE(p.total_good, 0) AS total_good,
+        COALESCE(p.total_ng, 0) AS total_ng,
+        COALESCE(d.rework_qty, 0) AS rework_qty,
+        COALESCE(d.scrap_qty, 0) AS scrap_qty
+      FROM prod_by_line p
+      FULL OUTER JOIN defect_by_line d ON p.line_name = d.line_name
+      ORDER BY COALESCE(p.total_produced, 0) DESC
+    `, [startDate, endDate]);
+
     res.json({
       success: true,
       data: {
         claims: claimResult.rows,
-        internal: internalResult.rows,
+        internal: internalCombined,
         detail: detailResult.rows,
         defects: defectDetail.rows,
         targets: targetsResult.rows,
+        line_summary: lineSummaryResult.rows,
         period: { startDate, endDate },
       },
     });

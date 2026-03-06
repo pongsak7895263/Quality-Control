@@ -98,7 +98,7 @@ const getLogs = async (req, res) => {
       FROM production_log pl
       ${where.length > 0 ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY pl.production_date DESC, pl.line, pl.created_at DESC
-      LIMIT 100
+      LIMIT 500
     `;
 
     const result = await query(sql, params);

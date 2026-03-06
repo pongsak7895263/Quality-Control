@@ -82,15 +82,6 @@ const MOCK_DATA = {
 // ═══════════════════════════════════════════════════════════════
 
 const transformApiData = (dashboardRes, valuesRes) => {
-  // ── Summary ──────────────────────────────────────────────────
-  const s = dashboardRes?.summary || {};
-  const totalProduced = Number(s.total_produced || s.totalProduced || 0);
-  const totalRework   = Number(s.total_rework || s.totalRework || 0);
-  const totalScrap    = Number(s.total_scrap || s.totalScrap || 0);
-  const totalGood     = Number(s.total_good || s.totalGood || 0) || (totalProduced - totalRework - totalScrap);
-  const fpy           = Number(s.first_pass_yield || s.firstPassYield || 0)
-                        || (totalProduced > 0 ? ((totalGood / totalProduced) * 100).toFixed(2) : 0);
-
   // ── Claims (จาก /kpi/values) ─────────────────────────────────
   const claimsArr = valuesRes?.claims || [];
   const claimsMap = {};
@@ -101,8 +92,9 @@ const transformApiData = (dashboardRes, valuesRes) => {
     };
   });
 
-  // ── Internal (จาก /kpi/values) ───────────────────────────────
+  // ── Internal (จาก /kpi/values — combined production_log + dps) ──
   const internalArr = valuesRes?.internal || [];
+  let totalProdLogGood = 0, totalProdLogTotal = 0;
   let prodRework = { count: 0, total: 0 };
   let machRework = { count: 0, total: 0 };
   let prodScrap  = { count: 0, total: 0 };
@@ -111,13 +103,26 @@ const transformApiData = (dashboardRes, valuesRes) => {
     const total  = Number(item.total || 0);
     const rework = Number(item.rework_qty || 0);
     const scrap  = Number(item.scrap_qty || 0);
+    const good   = Number(item.good_qty || 0);
+    const prodLogTotal = Number(item.total_from_prodlog || 0);
+
     if (item.group_name === 'machining') {
       machRework = { count: rework, total };
     } else {
       prodRework = { count: prodRework.count + rework, total: prodRework.total + total };
       prodScrap  = { count: prodScrap.count + scrap,  total: prodScrap.total + total };
     }
+    totalProdLogGood += good;
+    totalProdLogTotal += prodLogTotal || total;
   });
+
+  // ── Summary — ยอดจาก production_log (ฝ่ายผลิต) ────────────────
+  const s = dashboardRes?.summary || {};
+  const totalProduced = totalProdLogTotal || Number(s.total_produced || 0);
+  const totalRework   = prodRework.count + machRework.count;
+  const totalScrap    = prodScrap.count;
+  const totalGood     = Math.max(0, totalProduced - totalRework - totalScrap);
+  const fpy           = totalProduced > 0 ? ((totalGood / totalProduced) * 100).toFixed(2) : 0;
 
   // ── Andon Alerts ─────────────────────────────────────────────
   const andonAlerts = (dashboardRes?.andonAlerts || []).map(a => ({
@@ -156,6 +161,7 @@ const transformApiData = (dashboardRes, valuesRes) => {
     internal: { productionRework: prodRework, machiningRework: machRework, productionScrap: prodScrap },
     detail: valuesRes?.detail || [],
     defects: valuesRes?.defects || [],
+    lineSummary: valuesRes?.line_summary || [],
     andonAlerts,
     recentEntries,
   };
@@ -169,6 +175,8 @@ const KPIDashboard = () => {
   // ─── State ───────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState('mtd');
+  const [selectedMonth, setSelectedMonth] = useState(''); // '' = ใช้ dateRange, 'YYYY-MM' = ดูเดือนนั้น
+  const [selectedDate, setSelectedDate] = useState(''); // '' = ไม่ใช้, 'YYYY-MM-DD' = ดูวันนั้น
   const [selectedShift, setSelectedShift] = useState('ALL');
   const [selectedLine, setSelectedLine] = useState('ALL');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -191,6 +199,7 @@ const KPIDashboard = () => {
     recentEntries: [],
     detail: [],
     defects: [],
+    lineSummary: [],
   });
 
   // ─── Clock ───────────────────────────────────────────────────
@@ -209,10 +218,12 @@ const KPIDashboard = () => {
       // ── เรียก API 4 ตัวพร้อมกัน ──────────────────────────────
       const [dashRes, valsRes, alertsRes, entriesRes] = await Promise.allSettled([
         apiClient.get('/kpi/dashboard', {
-          params: { dateRange, shift: selectedShift, line: selectedLine }
+          params: { dateRange, shift: selectedShift, line: selectedLine,
+            ...(selectedDate ? { date: selectedDate } : selectedMonth ? { month: selectedMonth } : {}) }
         }),
         apiClient.get('/kpi/values', {
-          params: { dateRange }
+          params: { dateRange,
+            ...(selectedDate ? { date: selectedDate } : selectedMonth ? { month: selectedMonth } : {}) }
         }),
         apiClient.get('/kpi/andon', {
           params: { status: 'all' }
@@ -256,18 +267,12 @@ const KPIDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange, selectedShift, selectedLine]);
+  }, [dateRange, selectedShift, selectedLine, selectedMonth, selectedDate]);
 
-  // Auto-refresh ทุก 30 วินาที (หยุดเมื่ออยู่หน้าบันทึกข้อมูล)
+  // โหลดข้อมูลครั้งแรก + เมื่อ filter เปลี่ยน (ไม่ auto-refresh)
   useEffect(() => {
     fetchDashboardData();
-
-    // ✅ ไม่ auto-refresh ถ้าอยู่ tab บันทึกข้อมูล/claim (ป้องกันฟอร์ม reset)
-    if (activeTab === 'entry' || activeTab === 'claim' || activeTab === 'report' || activeTab === 'edit' || activeTab === 'parts' || activeTab === 'prodlog') return;
-
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchDashboardData, activeTab]);
+  }, [fetchDashboardData]);
 
   // ─── Computed KPI Values ──────────────────────────────────────
   const kpiValues = {
@@ -380,15 +385,45 @@ const KPIDashboard = () => {
           ))}
         </div>
         <div className="kpi-filters">
-          <select className="kpi-select" value={dateRange} onChange={e => setDateRange(e.target.value)}>
+          <select className="kpi-select" value={selectedDate ? 'date' : selectedMonth ? 'month' : dateRange}
+            onChange={e => {
+              if (e.target.value === 'month') {
+                setSelectedDate('');
+                const now = new Date();
+                setSelectedMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+              } else if (e.target.value === 'date') {
+                setSelectedMonth('');
+                setSelectedDate(new Date().toISOString().split('T')[0]);
+              } else {
+                setSelectedMonth('');
+                setSelectedDate('');
+                setDateRange(e.target.value);
+              }
+            }}>
             <option value="today">วันนี้</option>
             <option value="mtd">MTD (เดือนนี้)</option>
             <option value="ytd">YTD (ปีนี้)</option>
+            <option value="month">📆 เลือกเดือน</option>
+            <option value="date">📅 เลือกวันที่</option>
           </select>
+          {selectedMonth && (
+            <input type="month" className="kpi-select"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              style={{ minWidth: 150 }} />
+          )}
+          {selectedDate && (
+            <input type="date" className="kpi-select"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              style={{ minWidth: 150 }} />
+          )}
           <select className="kpi-select" value={selectedShift} onChange={e => setSelectedShift(e.target.value)}>
             <option value="ALL">ทุก Shift</option>
             <option value="A">Shift A</option>
             <option value="B">Shift B</option>
+            <option value="AB">Shift AB (รวม)</option>
+            <option value="Cutting">Shift Cutting</option>
           </select>
           <select className="kpi-select" value={selectedLine} onChange={e => setSelectedLine(e.target.value)}>
             <option value="ALL">ทุกสายการผลิต</option>
@@ -421,8 +456,17 @@ const KPIDashboard = () => {
                 andonAlerts={dashboardData.andonAlerts}
                 detail={dashboardData.detail || []}
                 defects={dashboardData.defects || []}
+                lineSummary={dashboardData.lineSummary || []}
                 claimsData={dashboardData.claims}
                 internalData={dashboardData.internal}
+                periodLabel={selectedDate
+                  ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+                  : selectedMonth
+                  ? new Date(selectedMonth + '-01').toLocaleDateString('th-TH', { year: 'numeric', month: 'long' })
+                  : dateRange === 'today' ? 'วันนี้'
+                  : dateRange === 'ytd' ? `ปี ${new Date().getFullYear()}`
+                  : `เดือน ${new Date().toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}`
+                }
               />
             )}
             {activeTab === 'trends' && (

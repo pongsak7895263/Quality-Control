@@ -55,6 +55,259 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
   const [recentList, setRecentList] = useState([]);
   const [lookupTimer, setLookupTimer] = useState(null);
   const [prodLogData, setProdLogData] = useState(null); // ยอดผลิตจากสายการผลิต
+  const [importF07, setImportF07] = useState([]); // import จาก F07 Excel
+  const [importPreview, setImportPreview] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+  const [importFilterMonth, setImportFilterMonth] = useState('');
+  const [importFilterPart, setImportFilterPart] = useState('');
+  const [importFilterLine, setImportFilterLine] = useState('');
+
+  // ─── F07 Excel → Defect Code mapping ──────────────────────
+  // Col P-AJ ใน Excel → defect codes ในระบบ
+  const F07_DEFECT_MAP = [
+    { col: 15, code: 'PRO-001', name: 'Trial', type: 'scrap' },          // P = 1.Trail
+    { col: 16, code: 'PRO-002', name: 'Block NG', type: 'scrap' },       // Q = 2.Block NG
+    { col: 17, code: 'PRO-003', name: 'Pre-forg NG', type: 'scrap' },    // R = 3.Pre-forg
+    { col: 18, code: 'PRO-004', name: 'Trim Mistake', type: 'scrap' },   // S = 4.Trim
+    { col: 19, code: 'PRO-005', name: 'Burr', type: 'rework' },          // T = 5.Burr
+    { col: 20, code: 'DIM-001', name: 'Lower Spec', type: 'scrap' },     // U = 6.Lower Spec
+    { col: 21, code: 'DIM-002', name: 'Over Spec', type: 'scrap' },      // V = 7.Over Spec
+    { col: 22, code: 'DIM-003', name: 'Mismatch', type: 'scrap' },       // W = 8.Mismatch
+    { col: 23, code: 'DIM-004', name: 'Dis Center', type: 'scrap' },     // X = 9.Dis Center
+    { col: 24, code: 'APP-008', name: 'Short Shot (ซ่อมได้)', type: 'rework' }, // Y = 10.1 Short Shot ซ่อมได้
+    { col: 25, code: 'APP-001', name: 'Short Shot (ทิ้ง)', type: 'scrap' },     // Z = 10.2 Short Shot เสียทิ้ง
+    { col: 26, code: 'APP-002', name: 'Crack', type: 'scrap' },          // AA = 11.Crack
+    { col: 27, code: 'APP-003', name: 'Nick (ซ่อมได้)', type: 'rework' },// AB = 12.1 Nick ซ่อมได้
+    { col: 28, code: 'APP-003', name: 'Nick (ทิ้ง)', type: 'scrap' },    // AC = 12.2 Nick เสียทิ้ง
+    { col: 29, code: 'APP-004', name: 'Scale (ซ่อมได้)', type: 'rework' },// AD = 13.1 Scale ซ่อมได้
+    { col: 30, code: 'APP-004', name: 'Scale (ทิ้ง)', type: 'scrap' },   // AE = 13.2 Scale เสียทิ้ง
+    { col: 31, code: 'APP-005', name: 'Deep Scale', type: 'scrap' },     // AF = 14.Deep Scale
+    { col: 32, code: 'APP-006', name: 'Stamp Mark', type: 'scrap' },     // AG = 15.Stamp Mark
+    { col: 33, code: 'APP-006', name: 'Worn Die', type: 'scrap' },       // AH = 16.Worn Die
+    { col: 34, code: 'APP-007', name: 'Bending', type: 'scrap' },        // AI = 17.Bending
+    { col: 35, code: 'APP-009', name: 'Other', type: 'scrap' },          // AJ = 18.Other
+  ];
+
+  // Col AM-AV → Rework methods
+  const F07_REWORK_MAP = [
+    { col: 38, code: 'RW-001', name: 'Pre Lath/Welding' },  // AM
+    { col: 39, code: 'RW-002', name: 'Grinding' },          // AN
+    { col: 40, code: 'RW-003', name: 'Shotblast' },         // AO
+    { col: 41, code: 'RW-004', name: 'Drilling' },          // AP
+    { col: 42, code: 'RW-005', name: 'Trimming' },          // AQ
+    { col: 43, code: 'RW-006', name: 'Heat Treatment' },    // AR
+    { col: 44, code: 'RW-007', name: 'Coining' },           // AS
+    { col: 45, code: 'RW-008', name: 'Special Used' },      // AT
+    { col: 46, code: 'RW-009', name: 'Machine' },           // AU
+    { col: 47, code: 'RW-010', name: 'Other' },             // AV
+  ];
+
+  // ─── Import F07 Excel ─────────────────────────────────────
+  const handleF07Import = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const XLSX = await import('xlsx');
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+
+      const sheetName = wb.SheetNames.find(n => n.includes('DATA-F07') || n.includes('F07')) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // Detect year from col A (ปี พ.ศ.) — only row 2 has it, rest inherit
+      let baseYear = 2026;
+      for (let i = 1; i < Math.min(20, rows.length); i++) {
+        const yr = parseInt(rows[i][0]);
+        if (yr > 2500) { baseYear = yr - 543; break; } // พ.ศ. → ค.ศ.
+        if (yr > 2000 && yr < 2100) { baseYear = yr; break; }
+      }
+
+      const parsed = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const partNo = String(r[4] || '').trim(); // E = รหัสสินค้า
+        if (!partNo) continue;
+
+        // วันที่: เดือน(B) + วันที่(C) + baseYear
+        const mo = String(r[1] || '').trim().padStart(2, '0');
+        const dy = String(r[2] || '').trim().padStart(2, '0');
+        let dateStr = '';
+        if (mo !== '00' && dy !== '00' && mo && dy) {
+          dateStr = `${baseYear}-${mo}-${dy}`;
+        }
+
+        let lineVal = String(r[13] || '').trim(); // N = LINE
+        if (lineVal && !lineVal.toLowerCase().startsWith('line')) {
+          if (/^\d+$/.test(lineVal)) lineVal = `Line-${lineVal}`;
+          else if (lineVal === 'MC') lineVal = 'Line-MC';
+          else if (lineVal === 'PD5') lineVal = 'Line-PD5';
+          else if (lineVal === 'Cutting') lineVal = 'Line-CT';
+          else lineVal = `Line-${lineVal}`;
+        }
+
+        // Parse defects
+        const defectItems = [];
+        F07_DEFECT_MAP.forEach(dm => {
+          const qty = parseInt(r[dm.col]) || 0;
+          if (qty > 0) defectItems.push({ code: dm.code, name: dm.name, type: dm.type, qty });
+        });
+
+        // Parse rework methods
+        const reworkMethods = [];
+        F07_REWORK_MAP.forEach(rm => {
+          const qty = parseInt(r[rm.col]) || 0;
+          if (qty > 0) reworkMethods.push({ code: rm.code, name: rm.name, qty });
+        });
+
+        const totalNG = parseInt(r[37]) || 0; // AL = รวม NG
+        const reworkQty = parseInt(r[49]) || 0; // AX = REWORK
+        const scrapQty = parseInt(r[50]) || 0; // AY = SCRAP
+
+        parsed.push({
+          id: Date.now() + i,
+          date: dateStr,
+          month: mo,
+          f07: String(r[3] || ''),        // D = เลขที่ F07
+          partNo,
+          partName: String(r[5] || ''),    // F = ชื่อชิ้นงาน
+          customer: String(r[6] || ''),    // G = ลูกค้า
+          group: String(r[7] || ''),       // H = GROUP (AUTO/GENERAL)
+          material: String(r[8] || ''),    // I = เกรดวัตถุดิบ
+          lot: String(r[9] || ''),         // J = Lot
+          source: String(r[11] || ''),     // L = Source (Forge/Final/MC)
+          bin: String(r[12] || ''),        // M = เลขที่ถัง
+          line: lineVal,
+          shift: String(r[14] || 'A').trim(), // O = Shift
+          defects: defectItems,
+          reworkMethods,
+          totalNG, reworkQty, scrapQty,
+          remark: String(r[36] || ''),     // AK = หมายเหตุ
+          selected: true,
+        });
+      }
+
+      if (parsed.length === 0) {
+        showToast('❌ ไม่พบข้อมูลในไฟล์');
+        return;
+      }
+
+      // Detect available months for filter
+      const months = [...new Set(parsed.map(r => r.month).filter(Boolean))].sort();
+      setImportFilterMonth(months.length > 0 ? months[months.length - 1] : '');
+      setImportFilterPart('');
+      setImportFilterLine('');
+      setImportF07(parsed);
+      setImportPreview(true);
+      showToast(`📂 F07: อ่านได้ ${parsed.length} รายการ (${baseYear}) จาก "${sheetName}"`);
+    } catch (err) {
+      console.error('F07 import error:', err);
+      showToast('❌ อ่านไฟล์ไม่สำเร็จ: ' + err.message);
+    }
+    e.target.value = '';
+  };
+
+  // Filtered import data
+  const importF07Filtered = importF07.filter(r => {
+    if (importFilterMonth && r.month !== importFilterMonth) return false;
+    if (importFilterPart && !r.partNo.toLowerCase().includes(importFilterPart.toLowerCase())) return false;
+    if (importFilterLine && r.line !== importFilterLine) return false;
+    return true;
+  });
+
+  const importMonths = [...new Set(importF07.map(r => r.month).filter(Boolean))].sort();
+  const importLines = [...new Set(importF07.map(r => r.line).filter(Boolean))].sort();
+
+  const toggleF07Row = (id) => {
+    setImportF07(p => p.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
+  };
+
+  const toggleF07All = () => {
+    const filteredIds = new Set(importF07Filtered.map(r => r.id));
+    const allSelected = importF07Filtered.every(r => r.selected);
+    setImportF07(p => p.map(r => filteredIds.has(r.id) ? { ...r, selected: !allSelected } : r));
+  };
+
+  const submitF07Import = async () => {
+    const selected = importF07Filtered.filter(r => r.selected);
+    if (!selected.length) { showToast('❌ กรุณาเลือกรายการ'); return; }
+    setImportSaving(true);
+
+    // ── Aggregate ตาม conflict key (date+line+part+shift) ────────
+    // F07 1 ใบอาจมีหลายถัง → หลายแถวใน Excel → ต้อง SUM ก่อนส่ง
+    const grouped = {};
+    for (const row of selected) {
+      const key = `${row.date}|${row.line}|${row.partNo}|${row.shift || 'A'}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          date: row.date, line: row.line, partNo: row.partNo,
+          partName: row.partName || '', lot: row.lot || '',
+          shift: row.shift || 'A',
+          reworkQty: 0, scrapQty: 0, totalNG: 0,
+          f07s: new Set(), bins: [], defects: [], reworkMethods: [],
+          remarks: [],
+        };
+      }
+      const g = grouped[key];
+      g.reworkQty += row.reworkQty || 0;
+      g.scrapQty += row.scrapQty || 0;
+      g.totalNG += row.totalNG || 0;
+      if (row.f07) g.f07s.add(row.f07);
+      if (row.bin) g.bins.push({ bin_no: String(row.bin), qty: row.totalNG, result: 'has_defect' });
+      if (row.lot && !g.lot) g.lot = row.lot;
+      if (row.partName && !g.partName) g.partName = row.partName;
+      if (row.remark) g.remarks.push(row.remark);
+      // Collect defects from all bins
+      row.defects.forEach(d => g.defects.push({
+        f07_doc_no: row.f07 || null, bin_no: row.bin || null,
+        found_qty: d.qty, sorted_good: 0, sorted_reject: d.qty,
+        defect_code: d.code, defect_type: d.type, quantity: d.qty, detail: d.name,
+        rework_result: d.type === 'rework' ? 'pending' : null,
+        rework_method: row.reworkMethods.length > 0 ? row.reworkMethods[0].code : null,
+      }));
+      row.reworkMethods.forEach(rm => g.reworkMethods.push(rm));
+    }
+
+    let ok = 0, fail = 0;
+    const keys = Object.values(grouped);
+    for (const g of keys) {
+      try {
+        const f07List = [...g.f07s].join(',');
+        await apiClient.post('/kpi/production', {
+          production_date: g.date || form.productionDate,
+          doc_number: f07List || null,
+          machine_code: g.line || form.line,
+          part_number: g.partNo,
+          part_name: g.partName || null,
+          lot_number: g.lot || null,
+          shift: g.shift,
+          operator_name: form.operator || 'Import F07',
+          inspector_name: form.inspector || null,
+          product_line_code: null,
+          total_produced: 0,
+          good_qty: 0,
+          rework_qty: g.reworkQty,
+          scrap_qty: g.scrapQty,
+          rework_good_qty: 0,
+          rework_scrap_qty: 0,
+          rework_pending_qty: g.reworkQty,
+          import_mode: 'replace', // SET ค่าใหม่ (ไม่ ADD ซ้อน)
+          remark: g.remarks.length > 0 ? g.remarks[0] : `Import F07 #${f07List}`,
+          inspected_bins: g.bins,
+          defect_items: g.defects,
+        });
+        ok++;
+      } catch (err) {
+        fail++;
+        console.error(`❌ F07 Import ${g.partNo}:`, err?.response?.data?.error || err.message);
+      }
+    }
+    setImportSaving(false);
+    showToast(`✅ Import สำเร็จ ${ok}/${keys.length} กลุ่ม (${selected.length} แถว)${fail > 0 ? ` | ❌ ล้มเหลว ${fail} (ดู Console)` : ''}`);
+    setImportPreview(false);
+    setImportF07([]);
+    onSubmitSuccess?.();
+  };
 
   // ─── ดึงยอดผลิตจาก production_log ─────────────────────────
   const fetchProdLog = async () => {
@@ -293,7 +546,13 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
 
           {/* ── Section 1: ข้อมูลการผลิต ── */}
           <div style={S.panel}>
-            <div style={S.head('#3b82f6')}><h3 style={S.title}>📋 ข้อมูลการผลิต</h3></div>
+            <div style={S.head('#3b82f6')}>
+              <h3 style={S.title}>📋 ข้อมูลการผลิต</h3>
+              <label style={{ padding: '6px 14px', background: '#f59e0b30', border: '1px solid #f59e0b', borderRadius: 6, color: '#f59e0b', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                📂 Import F07 Excel
+                <input type="file" accept=".xlsx,.xls" onChange={handleF07Import} style={{ display: 'none' }} />
+              </label>
+            </div>
             <div style={S.body}>
               <div style={S.grid(4)}>
                 <div>
@@ -384,6 +643,131 @@ const KPIDataEntry = ({ onSubmitSuccess }) => {
                 )}
                 {partInfo.billet_size && <span style={{ color: '#94a3b8', fontSize: 11 }}>🔩 {partInfo.billet_size} ({partInfo.billet_weight}g)</span>}
                 {partInfo.heat_treatment_supplier && partInfo.heat_treatment_supplier !== 'None' && <span style={{ color: '#94a3b8', fontSize: 11 }}>🏭 {partInfo.heat_treatment_supplier}</span>}
+              </div>
+            </div>
+          )}
+
+          {/* ── F07 Import Preview ── */}
+          {importPreview && importF07.length > 0 && (
+            <div style={{ ...S.panel, borderColor: '#f59e0b40' }}>
+              <div style={S.head('#f59e0b')}>
+                <h3 style={S.title}>📂 F07 Import — {importF07.length} รายการ
+                  <span style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>
+                    (แสดง {importF07Filtered.length} | เลือก {importF07Filtered.filter(r => r.selected).length} | NG {importF07Filtered.filter(r => r.selected).reduce((s, r) => s + r.totalNG, 0).toLocaleString()})
+                  </span>
+                </h3>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={submitF07Import} disabled={importSaving}
+                    style={S.btn(importSaving ? '#475569' : '#10b981', '#fff')}>
+                    {importSaving ? '⏳ Import...' : `✅ Import (${importF07Filtered.filter(r => r.selected).length})`}
+                  </button>
+                  <button onClick={() => { setImportPreview(false); setImportF07([]); }}
+                    style={S.btn('#ef444420', '#ef4444')}>✕ ปิด</button>
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div style={{ padding: '8px 16px', borderBottom: '1px solid #1e293b', display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div>
+                  <label style={S.label}>📆 เดือน</label>
+                  <select style={{ ...S.input, width: 130 }} value={importFilterMonth}
+                    onChange={e => setImportFilterMonth(e.target.value)}>
+                    <option value="">ทั้งหมด</option>
+                    {importMonths.map(m => (
+                      <option key={m} value={m}>เดือน {parseInt(m)} ({importF07.filter(r => r.month === m).length})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.label}>🔍 Part No.</label>
+                  <input style={{ ...S.input, width: 110 }} placeholder="ค้นหา..." value={importFilterPart}
+                    onChange={e => setImportFilterPart(e.target.value)} />
+                </div>
+                <div>
+                  <label style={S.label}>Line</label>
+                  <select style={{ ...S.input, width: 100 }} value={importFilterLine}
+                    onChange={e => setImportFilterLine(e.target.value)}>
+                    <option value="">ทั้งหมด</option>
+                    {importLines.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <button onClick={toggleF07All} style={S.btn('#1e293b', '#64748b')}>
+                  {importF07Filtered.every(r => r.selected) ? '☐ ยกเลิก' : '☑ เลือกทั้งหมด'}
+                </button>
+                {(importFilterMonth || importFilterPart || importFilterLine) && (
+                  <button onClick={() => { setImportFilterMonth(''); setImportFilterPart(''); setImportFilterLine(''); }}
+                    style={{ ...S.btn('#ef444420', '#ef4444'), padding: '5px 8px', fontSize: 10 }}>✕ ล้าง</button>
+                )}
+              </div>
+
+              <div style={{ ...S.body, maxHeight: 450, overflow: 'auto', padding: '8px 16px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #334155' }}>
+                      {['☑', '#', 'วันที่', 'F07', 'Part No.', 'ชื่อ', 'ลูกค้า', 'Lot', 'Source', 'ถัง', 'Line', 'Shift', 'NG', 'RW', 'SC', 'Defects'].map(h =>
+                        <th key={h} style={{ padding: '5px 3px', color: '#64748b', textAlign: 'left', fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importF07Filtered.map((row, idx) => (
+                      <tr key={row.id} style={{ borderBottom: '1px solid #1e293b', opacity: row.selected ? 1 : 0.35,
+                        background: idx % 2 === 0 ? 'transparent' : '#0f172a08' }}>
+                        <td style={{ padding: '3px' }}>
+                          <input type="checkbox" checked={row.selected} onChange={() => toggleF07Row(row.id)} />
+                        </td>
+                        <td style={{ padding: '3px', color: '#64748b', fontSize: 9 }}>{idx + 1}</td>
+                        <td style={{ padding: '3px', color: '#3b82f6', fontSize: 10 }}>
+                          {row.date ? `${row.date.split('-')[2]}/${row.date.split('-')[1]}` : '—'}
+                        </td>
+                        <td style={{ padding: '3px', color: '#8b5cf6', fontSize: 10 }}>{row.f07}</td>
+                        <td style={{ padding: '3px', fontWeight: 600, color: '#e2e8f0' }}>{row.partNo}</td>
+                        <td style={{ padding: '3px', color: '#94a3b8', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9 }}
+                          title={row.partName}>{row.partName}</td>
+                        <td style={{ padding: '3px', fontSize: 9 }}><span style={S.tag('#10b981')}>{row.customer}</span></td>
+                        <td style={{ padding: '3px', color: '#f59e0b', fontSize: 9 }}>{row.lot || '—'}</td>
+                        <td style={{ padding: '3px', fontSize: 9 }}>
+                          <span style={S.tag(row.source === 'Forge' ? '#3b82f6' : row.source === 'Final' ? '#10b981' : '#f59e0b')}>
+                            {row.source || '—'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '3px', color: '#64748b' }}>{row.bin || '—'}</td>
+                        <td style={{ padding: '3px' }}><span style={S.tag('#8b5cf6')}>{row.line}</span></td>
+                        <td style={{ padding: '3px', color: '#94a3b8' }}>{row.shift}</td>
+                        <td style={{ padding: '3px', fontWeight: 700, color: '#ef4444' }}>{row.totalNG}</td>
+                        <td style={{ padding: '3px', fontWeight: 600, color: row.reworkQty > 0 ? '#f59e0b' : '#334155' }}>{row.reworkQty || 0}</td>
+                        <td style={{ padding: '3px', fontWeight: 600, color: row.scrapQty > 0 ? '#ef4444' : '#334155' }}>{row.scrapQty || 0}</td>
+                        <td style={{ padding: '3px' }}>
+                          <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {row.defects.slice(0, 3).map((d, di) => (
+                              <span key={di} style={{ ...S.tag(d.type === 'scrap' ? '#ef4444' : '#f59e0b'), fontSize: 7 }}>
+                                {d.name}({d.qty})
+                              </span>
+                            ))}
+                            {row.defects.length > 3 && <span style={{ color: '#475569', fontSize: 7 }}>+{row.defects.length - 3}</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
+                      <td colSpan={12} style={{ padding: '8px 3px', fontWeight: 700, color: '#e2e8f0', fontSize: 11 }}>
+                        รวม ({importF07Filtered.filter(r => r.selected).length} / {importF07Filtered.length} รายการ)
+                      </td>
+                      <td style={{ padding: '8px 3px', fontWeight: 700, color: '#ef4444' }}>
+                        {importF07Filtered.filter(r => r.selected).reduce((s, r) => s + r.totalNG, 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '8px 3px', fontWeight: 700, color: '#f59e0b' }}>
+                        {importF07Filtered.filter(r => r.selected).reduce((s, r) => s + r.reworkQty, 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '8px 3px', fontWeight: 700, color: '#ef4444' }}>
+                        {importF07Filtered.filter(r => r.selected).reduce((s, r) => s + r.scrapQty, 0).toLocaleString()}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}

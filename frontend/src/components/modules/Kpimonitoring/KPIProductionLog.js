@@ -45,10 +45,20 @@ const KPIProductionLog = () => {
   // ข้อมูลที่บันทึกแล้ววันนี้
   const [todayLogs, setTodayLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [expandedLogId, setExpandedLogId] = useState(null); // ดูรายละเอียดถัง
+  const [expandedLogIds, setExpandedLogIds] = useState(new Set()); // ดูรายละเอียดถัง (หลายรายการ)
   const [importData, setImportData] = useState([]); // ข้อมูล import จาก Excel
   const [importing, setImporting] = useState(false);
   const [importPreview, setImportPreview] = useState(false);
+
+  // History filters
+  const [historyMode, setHistoryMode] = useState('date'); // 'date' | 'month'
+  const [historyMonth, setHistoryMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [filterPart, setFilterPart] = useState('');
+  const [filterLine, setFilterLine] = useState('');
+  const [filterLot, setFilterLot] = useState('');
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -61,6 +71,32 @@ const KPIProductionLog = () => {
       const XLSX = await import('xlsx');
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
+
+      // ─── อ่าน Part Name จาก sheet "Gerneral" (ถ้ามี) ────────
+      const generalSheet = wb.SheetNames.find(n => n.toLowerCase().includes('gerneral') || n.toLowerCase().includes('general') || n.toLowerCase().includes('master'));
+      const partNameFromExcel = {};
+      if (generalSheet) {
+        const gsWs = wb.Sheets[generalSheet];
+        const gsRows = XLSX.utils.sheet_to_json(gsWs, { header: 1, defval: '' });
+        // หา col Part No. + Part Name: ปกติ B=Part No., C=Part Name
+        let pnCol = -1, nameCol = -1;
+        for (let i = 0; i < Math.min(5, gsRows.length); i++) {
+          gsRows[i].forEach((cell, ci) => {
+            const lc = String(cell || '').toLowerCase().trim();
+            if (lc.includes('part no') || lc === 'part no.' || lc === 'รหัสชิ้นงาน') pnCol = ci;
+            if (lc.includes('part name') || lc === 'ชื่อชิ้นงาน') nameCol = ci;
+          });
+          if (pnCol >= 0 && nameCol >= 0) break;
+        }
+        // fallback: B=1, C=2
+        if (pnCol < 0) pnCol = 1;
+        if (nameCol < 0) nameCol = 2;
+        for (let i = 3; i < gsRows.length; i++) {
+          const pn = String(gsRows[i][pnCol] || '').trim();
+          const nm = String(gsRows[i][nameCol] || '').trim();
+          if (pn && nm) partNameFromExcel[pn] = nm;
+        }
+      }
 
       // หา sheet "Input" หรือใช้ sheet แรก
       const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('input')) || wb.SheetNames[0];
@@ -81,6 +117,7 @@ const KPIProductionLog = () => {
             if (lc.includes('กะ') || lc === 'กะ') colMap.shift = ci;
             if (lc === 'line' || lc.includes('line')) colMap.line = ci;
             if (lc.includes('part no')) colMap.partNo = ci;
+            if (lc.includes('part name') || lc.includes('ชื่อชิ้นงาน')) colMap.partName = ci;
             if (lc.includes('lot')) colMap.lot = ci;
             if (lc.includes('งานดี') || lc.includes('good')) colMap.good = ci;
             if (lc.includes('งานเสีย') || lc.includes('defect') || lc.includes('ng')) colMap.ng = ci;
@@ -89,15 +126,61 @@ const KPIProductionLog = () => {
         }
       }
 
-      // Fallback: ดูจาก row ก่อนหน้า header ด้วย
+      // Fallback: ถ้าหา header row ไม่ได้ → ลองหาแถวที่มี "เดือน" + "Part No."
       if (headerIdx === -1) {
-        // ลอง default mapping ตามไฟล์ตัวอย่าง: C=date, D=shift, E=line, F=partno, G=lot, H=good, I=ng
-        headerIdx = 8; // row 9 (0-indexed = 8) คือ header
-        colMap = { date: 2, shift: 3, line: 4, partNo: 5, lot: 6, good: 7, ng: 8 };
+        for (let i = 0; i < Math.min(10, jsonRows.length); i++) {
+          const rowStr = jsonRows[i].map(c => String(c || '').toLowerCase());
+          if (rowStr.some(c => c.includes('เดือน')) && rowStr.some(c => c.includes('part no'))) {
+            headerIdx = i;
+            jsonRows[i].forEach((cell, ci) => {
+              const lc = String(cell || '').toLowerCase().trim();
+              if (lc.includes('ว/ด/ป') || lc.includes('date')) colMap.date = ci;
+              if (lc.includes('กะ')) colMap.shift = ci;
+              if (lc === 'line' || lc.includes('line')) colMap.line = ci;
+              if (lc.includes('part no')) colMap.partNo = ci;
+              if (lc.includes('lot')) colMap.lot = ci;
+              if (lc.includes('งานดี')) colMap.good = ci;
+              if (lc.includes('งานเสีย')) colMap.ng = ci;
+            });
+            break;
+          }
+        }
       }
 
-      // ถ้ายังหา colMap ไม่ครบ → ใช้ default
-      if (colMap.date === undefined) colMap = { date: 2, shift: 3, line: 4, partNo: 5, lot: 6, good: 7, ng: 8 };
+      // ถ้ายังหา header ไม่ได้ → default
+      if (headerIdx === -1) headerIdx = 3;
+      if (colMap.date === undefined) colMap = { date: 2, shift: 3, line: 4, partNo: 5, lot: 7, good: 8, ng: 9 };
+
+      // ─── Auto-detect Part Name column ─────────────────────────
+      // ถ้า colMap ยังไม่มี partName → ดูว่า col ถัดจาก partNo มี text ยาวไหม (น่าจะเป็นชื่อ)
+      if (colMap.partName === undefined && colMap.partNo !== undefined) {
+        const nextCol = colMap.partNo + 1;
+        // ตรวจ 3 แถวข้อมูลแรก ว่า col ถัดไปมี text หรือไม่
+        let hasText = 0;
+        for (let i = headerIdx + 1; i < Math.min(headerIdx + 6, jsonRows.length); i++) {
+          const v = String(jsonRows[i]?.[nextCol] || '').trim();
+          if (v && v.length > 2 && isNaN(v)) hasText++;
+        }
+        if (hasText >= 2) {
+          colMap.partName = nextCol;
+          // ถ้า lot ชี้ไปที่ col เดียวกัน → เลื่อน lot ไป col ถัดไป
+          if (colMap.lot === nextCol) colMap.lot = nextCol + 1;
+        }
+      }
+
+      // ─── ตรวจ + แก้ lot/good/ng ให้ถูก column ──────────────────
+      // ถ้ามี partName col → lot/good/ng อาจต้องเลื่อน
+      if (colMap.partName !== undefined) {
+        // ตรวจว่า good col มีตัวเลขจริงไหม
+        const testRow = jsonRows[headerIdx + 1];
+        if (testRow) {
+          const goodVal = testRow[colMap.good];
+          if (goodVal === undefined || goodVal === '' || (typeof goodVal === 'string' && goodVal.length > 5)) {
+            // good col ไม่ใช่ตัวเลข → ต้อง re-detect จาก header
+            // ใช้ actual header scan
+          }
+        }
+      }
 
       // Parse data rows
       const parsed = [];
@@ -124,12 +207,16 @@ const KPIProductionLog = () => {
           lineVal = `Line-${lineVal}`;
         }
 
+        // Part Name: 1) จาก col ในไฟล์  2) จาก sheet Gerneral  3) ว่าง
+        const pnFromCol = colMap.partName !== undefined ? String(row[colMap.partName] || '').trim() : '';
+
         parsed.push({
           id: Date.now() + i,
           date: dateStr,
           shift: String(row[colMap.shift] || 'A').trim(),
           line: lineVal,
           partNo: partNo,
+          partName: pnFromCol || partNameFromExcel[partNo] || '',
           lot: String(row[colMap.lot] || '').trim(),
           good: parseInt(row[colMap.good]) || 0,
           ng: parseInt(row[colMap.ng]) || 0,
@@ -143,9 +230,24 @@ const KPIProductionLog = () => {
         return;
       }
 
+      // Lookup Part Name จาก Part Master (เฉพาะที่ไม่มีจาก Excel)
+      const uniqueParts = [...new Set(parsed.filter(r => !r.partName).map(r => r.partNo))];
+      const nameMap = {};
+      for (const pn of uniqueParts) {
+        try {
+          const res = await apiClient.get(`/kpi/parts/lookup/${encodeURIComponent(pn)}`);
+          const d = res?.data?.data || res?.data || res;
+          if (d?.part_name) nameMap[pn] = d.part_name;
+        } catch { /* skip */ }
+      }
+      parsed.forEach(r => { if (!r.partName) r.partName = nameMap[r.partNo] || ''; });
+
       setImportData(parsed);
       setImportPreview(true);
-      showToast(`📂 อ่านข้อมูลได้ ${parsed.length} รายการ จาก sheet "${sheetName}"`);
+      const withName = parsed.filter(r => r.partName).length;
+      const allParts = [...new Set(parsed.map(r => r.partNo))].length;
+      const colNames = colMap.partName !== undefined ? parsed.filter(r => r.partName).length : 0;
+      showToast(`📂 อ่าน ${parsed.length} รายการ จาก "${sheetName}" (Part Name: ${withName}/${allParts} parts${colMap.partName !== undefined ? ' — จาก col ในไฟล์' : ''})`);
     } catch (err) {
       console.error('Import error:', err);
       showToast('❌ อ่านไฟล์ไม่สำเร็จ: ' + err.message, 'error');
@@ -155,6 +257,10 @@ const KPIProductionLog = () => {
 
   const toggleImportRow = (id) => {
     setImportData(p => p.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
+  };
+
+  const updateImportField = (id, field, value) => {
+    setImportData(p => p.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
   const toggleSelectAll = () => {
@@ -176,7 +282,7 @@ const KPIProductionLog = () => {
           shift: row.shift,
           operator: form.operator || 'Import',
           part_number: row.partNo,
-          part_name: null,
+          part_name: row.partName || null,
           lot_number: row.lot || null,
           bins: [],
           total_good: row.good,
@@ -234,13 +340,21 @@ const KPIProductionLog = () => {
   const totalAll = totalGood + totalNG;
   const totalBins = rows.filter(r => r.binNo).length;
 
-  // ─── Fetch Today's Logs ────────────────────────────────────
+  // ─── Fetch Logs (date or month) ─────────────────────────────
   const fetchTodayLogs = useCallback(async () => {
     setLoadingLogs(true);
     try {
-      const res = await apiClient.get('/kpi/production-log', {
-        params: { date: form.productionDate, line: form.line || undefined },
-      });
+      const params = {};
+      if (historyMode === 'month') {
+        const [yr, mo] = historyMonth.split('-');
+        const lastDay = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+        params.from = `${historyMonth}-01`;
+        params.to = `${historyMonth}-${String(lastDay).padStart(2, '0')}`;
+      } else {
+        params.date = form.productionDate;
+      }
+      if (form.line) params.line = form.line;
+      const res = await apiClient.get('/kpi/production-log', { params });
       const raw = res?.data || res;
       let data = [];
       if (raw?.data && Array.isArray(raw.data)) data = raw.data;
@@ -248,9 +362,17 @@ const KPIProductionLog = () => {
       setTodayLogs(data);
     } catch { setTodayLogs([]); }
     finally { setLoadingLogs(false); }
-  }, [form.productionDate, form.line]);
+  }, [form.productionDate, form.line, historyMode, historyMonth]);
 
   useEffect(() => { fetchTodayLogs(); }, [fetchTodayLogs]);
+
+  // ─── Filtered history logs ────────────────────────────────
+  const filteredLogs = todayLogs.filter(log => {
+    if (filterPart && !(log.part_number || '').toLowerCase().includes(filterPart.toLowerCase())) return false;
+    if (filterLine && log.line !== filterLine) return false;
+    if (filterLot && !(log.lot_number || '').toLowerCase().includes(filterLot.toLowerCase())) return false;
+    return true;
+  });
 
   // ─── Submit ────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -383,6 +505,11 @@ const KPIProductionLog = () => {
                   <span style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>
                     (เลือก {importData.filter(r => r.selected).length} | รวม {importData.filter(r => r.selected).reduce((s, r) => s + r.total, 0).toLocaleString()} ชิ้น)
                   </span>
+                  {importData.filter(r => !r.partName).length > 0 && (
+                    <span style={{ fontWeight: 400, fontSize: 10, color: '#ef4444', marginLeft: 8 }}>
+                      ⚠️ ไม่พบชื่อ {importData.filter(r => !r.partName).length} รายการ (คลิกแก้ไขได้)
+                    </span>
+                  )}
                 </h3>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={toggleSelectAll} style={S.btn('#1e293b', '#64748b')}>
@@ -400,7 +527,7 @@ const KPIProductionLog = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #334155' }}>
-                      {['☑', '#', 'วันที่', 'กะ', 'Line', 'Part No.', 'Lot No.', '✅ งานดี', '❌ งานเสีย', 'รวม'].map(h =>
+                      {['☑', '#', 'วันที่', 'กะ', 'Line', 'Part No.', 'Part Name ✏️', 'Lot No.', '✅ งานดี', '❌ งานเสีย', 'รวม'].map(h =>
                         <th key={h} style={{ padding: '6px 4px', color: '#64748b', textAlign: 'left', fontSize: 10 }}>{h}</th>
                       )}
                     </tr>
@@ -417,6 +544,15 @@ const KPIProductionLog = () => {
                         <td style={{ padding: '4px', color: '#94a3b8' }}>{row.shift}</td>
                         <td style={{ padding: '4px' }}><span style={S.tag('#8b5cf6')}>{row.line}</span></td>
                         <td style={{ padding: '4px', fontWeight: 600, color: '#e2e8f0' }}>{row.partNo}</td>
+                        <td style={{ padding: '3px', minWidth: 140 }}>
+                          <input style={{ ...S.input, padding: '3px 6px', fontSize: 10,
+                            borderColor: row.partName ? '#10b98140' : '#ef444440',
+                            color: row.partName ? '#10b981' : '#94a3b8',
+                            background: '#0f172a' }}
+                            value={row.partName}
+                            placeholder="พิมพ์ชื่อ..."
+                            onChange={e => updateImportField(row.id, 'partName', e.target.value)} />
+                        </td>
                         <td style={{ padding: '4px', color: '#f59e0b' }}>{row.lot || '—'}</td>
                         <td style={{ padding: '4px', fontWeight: 700, color: '#10b981' }}>{row.good.toLocaleString()}</td>
                         <td style={{ padding: '4px', fontWeight: 700, color: row.ng > 0 ? '#ef4444' : '#64748b' }}>{row.ng}</td>
@@ -426,7 +562,7 @@ const KPIProductionLog = () => {
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
-                      <td colSpan={7} style={{ padding: '8px 4px', fontWeight: 700, color: '#e2e8f0', fontSize: 11 }}>
+                      <td colSpan={8} style={{ padding: '8px 4px', fontWeight: 700, color: '#e2e8f0', fontSize: 11 }}>
                         รวม (เลือก {importData.filter(r => r.selected).length} / {importData.length})
                       </td>
                       <td style={{ padding: '8px 4px', fontWeight: 700, color: '#10b981' }}>
@@ -578,66 +714,129 @@ const KPIProductionLog = () => {
       {/* ═══ HISTORY TABLE — ด้านล่าง ═══ */}
       <div style={{ ...S.panel, marginTop: 8 }}>
         <div style={S.head('#f59e0b')}>
-          <h3 style={S.title}>📋 ประวัติการบันทึกยอดผลิต — {form.productionDate}</h3>
+          <h3 style={S.title}>📋 ประวัติการบันทึกยอดผลิต</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ color: '#64748b', fontSize: 11 }}>{todayLogs.length} รายการ</span>
-            <button onClick={fetchTodayLogs} style={S.btn('#1e293b', '#64748b')}>🔄 รีเฟรช</button>
+            <span style={{ color: '#64748b', fontSize: 11 }}>{filteredLogs.length} / {todayLogs.length} รายการ</span>
+            <button onClick={fetchTodayLogs} style={S.btn('#1e293b', '#64748b')}>🔄</button>
           </div>
         </div>
+
+        {/* Filter Bar */}
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #1e293b', display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          {/* Mode Toggle */}
+          <div>
+            <label style={S.label}>ดูตาม</label>
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button onClick={() => setHistoryMode('date')}
+                style={{ padding: '5px 12px', borderRadius: '4px 0 0 4px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  background: historyMode === 'date' ? '#3b82f6' : '#1e293b', color: historyMode === 'date' ? '#fff' : '#64748b',
+                  border: `1px solid ${historyMode === 'date' ? '#3b82f6' : '#334155'}` }}>📅 วัน</button>
+              <button onClick={() => setHistoryMode('month')}
+                style={{ padding: '5px 12px', borderRadius: '0 4px 4px 0', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  background: historyMode === 'month' ? '#3b82f6' : '#1e293b', color: historyMode === 'month' ? '#fff' : '#64748b',
+                  border: `1px solid ${historyMode === 'month' ? '#3b82f6' : '#334155'}` }}>📆 เดือน</button>
+            </div>
+          </div>
+
+          {historyMode === 'month' ? (
+            <div>
+              <label style={S.label}>เดือน</label>
+              <input type="month" style={{ ...S.input, width: 160 }} value={historyMonth}
+                onChange={e => setHistoryMonth(e.target.value)} />
+            </div>
+          ) : (
+            <div>
+              <label style={S.label}>วันที่</label>
+              <input type="date" style={{ ...S.input, width: 150 }} value={form.productionDate}
+                onChange={e => set('productionDate', e.target.value)} />
+            </div>
+          )}
+
+          <div>
+            <label style={S.label}>🔍 Part No.</label>
+            <input style={{ ...S.input, width: 120 }} placeholder="ค้นหา..." value={filterPart}
+              onChange={e => setFilterPart(e.target.value)} />
+          </div>
+          <div>
+            <label style={S.label}>Line</label>
+            <select style={{ ...S.input, width: 110 }} value={filterLine} onChange={e => setFilterLine(e.target.value)}>
+              <option value="">ทั้งหมด</option>
+              {LINES.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={S.label}>Lot No.</label>
+            <input style={{ ...S.input, width: 120 }} placeholder="ค้นหา..." value={filterLot}
+              onChange={e => setFilterLot(e.target.value)} />
+          </div>
+          {(filterPart || filterLine || filterLot) && (
+            <button onClick={() => { setFilterPart(''); setFilterLine(''); setFilterLot(''); }}
+              style={{ ...S.btn('#ef444420', '#ef4444'), padding: '5px 10px', fontSize: 10 }}>✕ ล้าง</button>
+          )}
+        </div>
+
         <div style={S.body}>
           {loadingLogs ? (
             <div style={{ textAlign: 'center', color: '#64748b', padding: 24 }}>⏳ กำลังโหลด...</div>
-          ) : todayLogs.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#475569', padding: 24 }}>ยังไม่มีบันทึกวันที่ {form.productionDate}</div>
+          ) : filteredLogs.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#475569', padding: 24 }}>
+              ไม่พบข้อมูล {historyMode === 'month' ? historyMonth : form.productionDate}
+              {filterPart && ` | Part: ${filterPart}`}
+              {filterLine && ` | Line: ${filterLine}`}
+            </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #334155' }}>
-                  {['#', 'Part No.', 'Part Name', 'Lot No.', 'Line', 'Shift', '✅ ดี', '❌ เสีย', 'รวม', 'ถัง', 'Good%', 'Operator', 'เวลา', ''].map(h =>
-                    <th key={h} style={{ padding: '8px 6px', color: '#64748b', textAlign: 'left', fontSize: 10, fontWeight: 700 }}>{h}</th>
+                  {['#', 'วันที่', 'Part No.', 'Part Name', 'Lot No.', 'Line', 'Shift', '✅ ดี', '❌ เสีย', 'รวม', 'ถัง', 'Good%', 'Operator', ''].map(h =>
+                    <th key={h} style={{ padding: '8px 5px', color: '#64748b', textAlign: 'left', fontSize: 10, fontWeight: 700 }}>{h}</th>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {todayLogs.map((log, idx) => {
+                {filteredLogs.map((log, idx) => {
                   const total = log.total_produced || 0;
                   const good = log.total_good || 0;
                   const ng = log.total_ng || 0;
                   const goodPct = total > 0 ? ((good / total) * 100).toFixed(1) : '0';
-                  const isExpanded = expandedLogId === log.id;
+                  const isExpanded = expandedLogIds.has(log.id);
                   const hasBins = log.bins && log.bins.length > 0;
 
                   return (
                     <React.Fragment key={log.id || idx}>
                       <tr style={{ borderBottom: '1px solid #1e293b', cursor: hasBins ? 'pointer' : 'default',
                         background: isExpanded ? '#1e293b' : (idx % 2 === 0 ? 'transparent' : '#0f172a08') }}
-                        onClick={() => hasBins && setExpandedLogId(isExpanded ? null : log.id)}>
-                        <td style={{ padding: '8px 6px', color: '#64748b' }}>{idx + 1}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#3b82f6' }}>{log.part_number}</td>
-                        <td style={{ padding: '8px 6px', color: '#e2e8f0', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.part_name || '—'}</td>
-                        <td style={{ padding: '8px 6px', color: '#f59e0b' }}>{log.lot_number || '—'}</td>
-                        <td style={{ padding: '8px 6px' }}><span style={S.tag('#8b5cf6')}>{log.line}</span></td>
-                        <td style={{ padding: '8px 6px', color: '#94a3b8' }}>{log.shift}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{good.toLocaleString()}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: ng > 0 ? '#ef4444' : '#64748b' }}>{ng.toLocaleString()}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#e2e8f0' }}>{total.toLocaleString()}</td>
-                        <td style={{ padding: '8px 6px', color: '#8b5cf6' }}>{log.total_bins || 0}</td>
-                        <td style={{ padding: '8px 6px' }}>
-                          <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                        onClick={() => hasBins && setExpandedLogIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(log.id)) next.delete(log.id);
+                          else next.add(log.id);
+                          return next;
+                        })}>
+                        <td style={{ padding: '7px 5px', color: '#64748b', fontSize: 10 }}>{idx + 1}</td>
+                        <td style={{ padding: '7px 5px', color: '#3b82f6', fontSize: 11 }}>
+                          {log.production_date ? new Date(log.production_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) : '—'}
+                        </td>
+                        <td style={{ padding: '7px 5px', fontWeight: 700, color: '#3b82f6' }}>{log.part_number}</td>
+                        <td style={{ padding: '7px 5px', color: '#e2e8f0', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{log.part_name || '—'}</td>
+                        <td style={{ padding: '7px 5px', color: '#f59e0b', fontSize: 11 }}>{log.lot_number || '—'}</td>
+                        <td style={{ padding: '7px 5px' }}><span style={S.tag('#8b5cf6')}>{log.line}</span></td>
+                        <td style={{ padding: '7px 5px', color: '#94a3b8' }}>{log.shift}</td>
+                        <td style={{ padding: '7px 5px', fontWeight: 700, color: '#10b981' }}>{good.toLocaleString()}</td>
+                        <td style={{ padding: '7px 5px', fontWeight: 700, color: ng > 0 ? '#ef4444' : '#64748b' }}>{ng.toLocaleString()}</td>
+                        <td style={{ padding: '7px 5px', fontWeight: 700, color: '#e2e8f0' }}>{total.toLocaleString()}</td>
+                        <td style={{ padding: '7px 5px', color: '#8b5cf6' }}>{log.total_bins || 0}</td>
+                        <td style={{ padding: '7px 5px' }}>
+                          <span style={{ padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700,
                             background: parseFloat(goodPct) >= 99 ? '#10b98120' : parseFloat(goodPct) >= 95 ? '#f59e0b20' : '#ef444420',
                             color: parseFloat(goodPct) >= 99 ? '#10b981' : parseFloat(goodPct) >= 95 ? '#f59e0b' : '#ef4444' }}>
                             {goodPct}%
                           </span>
                         </td>
-                        <td style={{ padding: '8px 6px', color: '#94a3b8', fontSize: 11 }}>{log.operator || '—'}</td>
-                        <td style={{ padding: '8px 6px', color: '#64748b', fontSize: 10 }}>
-                          {log.created_at ? new Date(log.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                        </td>
-                        <td style={{ padding: '8px 6px' }}>
-                          {hasBins && <span style={{ fontSize: 10, color: isExpanded ? '#3b82f6' : '#475569' }}>{isExpanded ? '▲' : '▼'} {log.bins.length} ถัง</span>}
+                        <td style={{ padding: '7px 5px', color: '#94a3b8', fontSize: 10 }}>{log.operator || '—'}</td>
+                        <td style={{ padding: '7px 5px' }}>
+                          {hasBins && <span style={{ fontSize: 10, color: isExpanded ? '#3b82f6' : '#475569' }}>{isExpanded ? '▲' : '▼'} {log.bins.length}</span>}
                         </td>
                       </tr>
-                      {/* Expanded: รายละเอียดถัง */}
                       {isExpanded && hasBins && (
                         <tr>
                           <td colSpan={14} style={{ padding: 0 }}>
@@ -658,9 +857,9 @@ const KPIProductionLog = () => {
                                 </div>
                               ))}
                               <div style={{ marginTop: 6, display: 'flex', gap: 12, fontSize: 10, color: '#64748b' }}>
-                                <span>รวม: <strong style={{ color: '#e2e8f0' }}>{log.bins.reduce((s, b) => s + (b.good_qty || 0) + (b.ng_qty || 0), 0).toLocaleString()}</strong> ชิ้น</span>
-                                <span>ดี: <strong style={{ color: '#10b981' }}>{log.bins.reduce((s, b) => s + (b.good_qty || 0), 0).toLocaleString()}</strong></span>
-                                <span>เสีย: <strong style={{ color: '#ef4444' }}>{log.bins.reduce((s, b) => s + (b.ng_qty || 0), 0).toLocaleString()}</strong></span>
+                                <span>รวม: <strong style={{ color: '#e2e8f0' }}>{log.bins.reduce((s2, b) => s2 + (b.good_qty || 0) + (b.ng_qty || 0), 0).toLocaleString()}</strong> ชิ้น</span>
+                                <span>ดี: <strong style={{ color: '#10b981' }}>{log.bins.reduce((s2, b) => s2 + (b.good_qty || 0), 0).toLocaleString()}</strong></span>
+                                <span>เสีย: <strong style={{ color: '#ef4444' }}>{log.bins.reduce((s2, b) => s2 + (b.ng_qty || 0), 0).toLocaleString()}</strong></span>
                               </div>
                             </div>
                           </td>
@@ -670,34 +869,33 @@ const KPIProductionLog = () => {
                   );
                 })}
               </tbody>
-              {/* Footer: รวมทั้งหมด */}
               <tfoot>
                 <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
-                  <td colSpan={6} style={{ padding: '10px 6px', color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>
-                    รวมทั้งหมด ({todayLogs.length} รายการ)
+                  <td colSpan={7} style={{ padding: '10px 5px', color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>
+                    รวม ({filteredLogs.length} รายการ)
                   </td>
-                  <td style={{ padding: '10px 6px', fontWeight: 700, color: '#10b981', fontSize: 13 }}>
-                    {todayLogs.reduce((s, l) => s + (l.total_good || 0), 0).toLocaleString()}
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#10b981', fontSize: 13 }}>
+                    {filteredLogs.reduce((s, l) => s + (l.total_good || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 6px', fontWeight: 700, color: '#ef4444', fontSize: 13 }}>
-                    {todayLogs.reduce((s, l) => s + (l.total_ng || 0), 0).toLocaleString()}
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#ef4444', fontSize: 13 }}>
+                    {filteredLogs.reduce((s, l) => s + (l.total_ng || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 6px', fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>
-                    {todayLogs.reduce((s, l) => s + (l.total_produced || 0), 0).toLocaleString()}
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>
+                    {filteredLogs.reduce((s, l) => s + (l.total_produced || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 6px', fontWeight: 700, color: '#8b5cf6', fontSize: 13 }}>
-                    {todayLogs.reduce((s, l) => s + (l.total_bins || 0), 0)}
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#8b5cf6', fontSize: 13 }}>
+                    {filteredLogs.reduce((s, l) => s + (l.total_bins || 0), 0)}
                   </td>
-                  <td style={{ padding: '10px 6px' }}>
+                  <td style={{ padding: '10px 5px' }}>
                     {(() => {
-                      const tg = todayLogs.reduce((s, l) => s + (l.total_good || 0), 0);
-                      const tp = todayLogs.reduce((s, l) => s + (l.total_produced || 0), 0);
+                      const tg = filteredLogs.reduce((s, l) => s + (l.total_good || 0), 0);
+                      const tp = filteredLogs.reduce((s, l) => s + (l.total_produced || 0), 0);
                       const p = tp > 0 ? ((tg / tp) * 100).toFixed(1) : '0';
                       return <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
                         background: '#10b98120', color: '#10b981' }}>{p}%</span>;
                     })()}
                   </td>
-                  <td colSpan={3}></td>
+                  <td colSpan={2}></td>
                 </tr>
               </tfoot>
             </table>

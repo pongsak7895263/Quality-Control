@@ -21,7 +21,7 @@ import ChemicalTest from "./components/modules/ChemicalTest";
 import HardnessInspection from "./components/modules/HardnessInspection";
 import PartMaster from './components/modules/PartMaster';
 import HardnessReport from './components/modules/HardnessReport';
-
+//import TroubleHistory from "./components/modules/TroubleHistory/TroubleHistory";
 //import Reports from "./components/modules/Reports";
 //import Settings from "./components/modules/Settings";
 import ComingSoon from "./components/common/ComingSoon";
@@ -121,6 +121,8 @@ function App() {
                 <Route path="daily-entry" element={<DailyQualityEntry />} />
               </Route>
               {/* --- End Kpimonitoring Routes --- */}
+
+              {/*<Route path="TroubleHistory" element={<TroubleHistory />} />*/}
 
             </Route>
           </Route>

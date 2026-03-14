@@ -395,30 +395,60 @@ const getKpiValues = async (req, res) => {
 const getTrends = async (req, res) => {
   try {
     const { months = 12, line = 'ALL' } = req.query;
+    const monthsInt = parseInt(months) || 12;
 
-    // Monthly internal metrics
-    const trendResult = await query(`
+    // ── 1. ยอดผลิตรายเดือน จาก production_log ────────────────
+    const prodMonthly = await query(`
       SELECT
-        TO_CHAR(DATE_TRUNC('month', ie.inspected_at), 'YYYY-MM') AS month,
-        SUM(ie.quantity) AS total_produced,
-        SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END) AS total_rework,
-        SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END) AS total_scrap,
-        CASE WHEN SUM(ie.quantity) > 0 
-          THEN ROUND((SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END)::DECIMAL / SUM(ie.quantity)) * 100, 4)
-          ELSE 0 END AS rework_pct,
-        CASE WHEN SUM(ie.quantity) > 0 
-          THEN ROUND((SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END)::DECIMAL / SUM(ie.quantity)) * 100, 4)
-          ELSE 0 END AS scrap_pct,
-        CASE WHEN SUM(ie.quantity) > 0 
-          THEN ROUND((SUM(CASE WHEN ie.disposition = 'GOOD' THEN ie.quantity ELSE 0 END)::DECIMAL / SUM(ie.quantity)) * 100, 2)
-          ELSE 0 END AS fpy
-      FROM inspection_entries ie
-      WHERE ie.inspected_at >= NOW() - INTERVAL '${parseInt(months)} months'
-      GROUP BY DATE_TRUNC('month', ie.inspected_at)
+        TO_CHAR(production_date, 'YYYY-MM') AS month,
+        SUM(total_produced) AS total_produced,
+        SUM(total_good) AS total_good,
+        SUM(total_ng) AS total_ng
+      FROM production_log
+      WHERE production_date >= (CURRENT_DATE - INTERVAL '${monthsInt} months')
+      GROUP BY TO_CHAR(production_date, 'YYYY-MM')
       ORDER BY month
     `);
 
-    // Monthly claim PPMs
+    // ── 2. ของเสียรายเดือน จาก daily_production_summary ──────
+    const defectMonthly = await query(`
+      SELECT
+        TO_CHAR(dps.production_date, 'YYYY-MM') AS month,
+        SUM(dps.rework_qty) AS rework_qty,
+        SUM(dps.scrap_qty) AS scrap_qty,
+        SUM(dps.rework_good_qty) AS rework_good_qty,
+        SUM(dps.rework_scrap_qty) AS rework_scrap_qty
+      FROM daily_production_summary dps
+      WHERE dps.production_date >= (CURRENT_DATE - INTERVAL '${monthsInt} months')
+      GROUP BY TO_CHAR(dps.production_date, 'YYYY-MM')
+      ORDER BY month
+    `);
+
+    // ── 3. Merge monthly: production + defects ───────────────
+    const allMonths = [...new Set([
+      ...prodMonthly.rows.map(r => r.month),
+      ...defectMonthly.rows.map(r => r.month),
+    ])].sort();
+
+    const monthlyInternal = allMonths.map(m => {
+      const prod = prodMonthly.rows.find(r => r.month === m) || {};
+      const def = defectMonthly.rows.find(r => r.month === m) || {};
+      const tp = Number(prod.total_produced) || 0;
+      const rw = Number(def.rework_qty) || 0;
+      const sc = Number(def.scrap_qty) || 0;
+      return {
+        month: m,
+        total_produced: tp,
+        total_good: Number(prod.total_good) || 0,
+        total_rework: rw,
+        total_scrap: sc,
+        rework_pct: tp > 0 ? parseFloat(((rw / tp) * 100).toFixed(4)) : 0,
+        scrap_pct: tp > 0 ? parseFloat(((sc / tp) * 100).toFixed(4)) : 0,
+        fpy: tp > 0 ? parseFloat((((tp - rw - sc) / tp) * 100).toFixed(2)) : 0,
+      };
+    });
+
+    // ── 4. Claims PPM รายเดือน ────────────────────────────────
     const claimTrendResult = await query(`
       SELECT
         TO_CHAR(DATE_TRUNC('month', claim_date), 'YYYY-MM') AS month,
@@ -429,37 +459,84 @@ const getTrends = async (req, res) => {
           THEN ROUND((SUM(defect_qty)::DECIMAL / SUM(shipped_qty)) * 1000000, 2)
           ELSE 0 END AS ppm
       FROM customer_claims
-      WHERE claim_date >= NOW() - INTERVAL '${parseInt(months)} months'
+      WHERE claim_date >= (CURRENT_DATE - INTERVAL '${monthsInt} months')
       GROUP BY DATE_TRUNC('month', claim_date), claim_category
       ORDER BY month
     `);
 
-    // Daily detail for current month (machining focus)
-    const dailyResult = await query(`
+    // ── 5. ยอดผลิตรายวัน (เดือนปัจจุบัน) ─────────────────────
+    const dailyProd = await query(`
       SELECT
-        ie.inspected_at::DATE AS day,
-        SUM(ie.quantity) AS total,
-        SUM(CASE WHEN ie.disposition = 'SCRAP' THEN ie.quantity ELSE 0 END) AS scrap,
-        SUM(CASE WHEN ie.disposition = 'REWORK' THEN ie.quantity ELSE 0 END) AS rework
-      FROM inspection_entries ie
-      LEFT JOIN product_lines pl ON ie.product_line_id = pl.id
-      WHERE ie.inspected_at >= DATE_TRUNC('month', CURRENT_DATE)
-      AND (pl.claim_category = 'machining' OR $1 = 'ALL')
-      GROUP BY ie.inspected_at::DATE
+        pl.production_date::DATE AS day,
+        SUM(pl.total_produced) AS total_produced,
+        SUM(pl.total_good) AS total_good,
+        SUM(pl.total_ng) AS total_ng
+      FROM production_log pl
+      WHERE pl.production_date >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY pl.production_date::DATE
       ORDER BY day
-    `, [line]);
+    `);
+
+    const dailyDefect = await query(`
+      SELECT
+        dps.production_date::DATE AS day,
+        SUM(dps.rework_qty) AS rework_qty,
+        SUM(dps.scrap_qty) AS scrap_qty
+      FROM daily_production_summary dps
+      WHERE dps.production_date >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY dps.production_date::DATE
+      ORDER BY day
+    `);
+
+    const allDays = [...new Set([
+      ...dailyProd.rows.map(r => r.day),
+      ...dailyDefect.rows.map(r => r.day),
+    ])].sort();
+
+    const dailyDetail = allDays.map(d => {
+      const dStr = typeof d === 'string' ? d : new Date(d).toISOString().split('T')[0];
+      const prod = dailyProd.rows.find(r => {
+        const rStr = typeof r.day === 'string' ? r.day : new Date(r.day).toISOString().split('T')[0];
+        return rStr === dStr;
+      }) || {};
+      const def = dailyDefect.rows.find(r => {
+        const rStr = typeof r.day === 'string' ? r.day : new Date(r.day).toISOString().split('T')[0];
+        return rStr === dStr;
+      }) || {};
+      return {
+        day: dStr,
+        total_produced: Number(prod.total_produced) || 0,
+        total_good: Number(prod.total_good) || 0,
+        rework: Number(def.rework_qty) || 0,
+        scrap: Number(def.scrap_qty) || 0,
+      };
+    });
+
+    // ── 6. ของเสียแยก Line (เดือนปัจจุบัน) ───────────────────
+    const lineDefect = await query(`
+      SELECT
+        CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END AS line_name,
+        SUM(dps.rework_qty) AS rework_qty,
+        SUM(dps.scrap_qty) AS scrap_qty
+      FROM daily_production_summary dps
+      LEFT JOIN machines m ON dps.machine_id = m.id
+      WHERE dps.production_date >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END
+      ORDER BY SUM(dps.rework_qty) + SUM(dps.scrap_qty) DESC
+    `);
 
     res.json({
       success: true,
       data: {
-        monthlyInternal: trendResult.rows,
+        monthlyInternal,
         monthlyClaims: claimTrendResult.rows,
-        dailyDetail: dailyResult.rows,
+        dailyDetail,
+        byLine: lineDefect.rows,
       },
     });
   } catch (error) {
     console.error('[KPI] getTrends error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch trends' });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

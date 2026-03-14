@@ -67,6 +67,7 @@ const createProduction = async (req, res) => {
     const machineId = machineRes.rows[0].id;
 
     const prodDate = production_date || new Date().toISOString().split('T')[0];
+    const shiftValue = shift || 'A';
 
     // Upsert daily_production_summary
     // import_mode = 'replace': ลบข้อมูลเก่าก่อน → INSERT ใหม่ (ป้องกัน import ซ้ำ)
@@ -78,7 +79,7 @@ const createProduction = async (req, res) => {
       const oldDps = await client.query(
         `SELECT id FROM daily_production_summary 
          WHERE production_date = $1 AND machine_id = $2 AND part_number = $3 AND shift = $4`,
-        [prodDate, machineId, part_number, shift || 'A']
+        [prodDate, machineId, part_number, shiftValue]
       );
       for (const old of oldDps.rows) {
         await client.query('DELETE FROM defect_detail WHERE summary_id = $1', [old.id]);
@@ -91,19 +92,22 @@ const createProduction = async (req, res) => {
           `DELETE FROM inspection_entries 
            WHERE machine_id = $1 AND part_number = $2 AND shift = $3
            AND operator_name = 'Import F07'`,
-          [machineId, part_number, shift || 'A']
+          [machineId, part_number, shiftValue]
         );
       } catch (delErr) {
         console.warn('[KPI] Could not clean inspection_entries:', delErr.message);
       }
     }
 
-    // ── ตรวจว่า column ชื่อ notes หรือ remark ──
+    // ── ตรวจว่า column ชื่อ notes หรือ remark (ใช้ SAVEPOINT ป้องกัน transaction abort) ──
     let notesCol = 'notes';
     try {
+      await client.query('SAVEPOINT check_notes');
       await client.query(`SELECT notes FROM daily_production_summary LIMIT 0`);
+      await client.query('RELEASE SAVEPOINT check_notes');
     } catch {
-      notesCol = 'remark'; // fallback ถ้าไม่มี notes column
+      await client.query('ROLLBACK TO SAVEPOINT check_notes');
+      notesCol = 'remark';
     }
 
     const upsertRes = await client.query(`
@@ -133,7 +137,7 @@ const createProduction = async (req, res) => {
         updated_at = NOW()
       RETURNING *
     `, [
-      prodDate, machineId, part_number, part_name || null, shift || 'A', operator_name,
+      prodDate, machineId, part_number, part_name || null, shiftValue, operator_name,
       inspector_name || null, lot_number || null, doc_number || null,
       total_produced, good_qty || 0, rework_qty || 0, scrap_qty || 0,
       rework_good_qty, rework_scrap_qty, rework_pending_qty, remark,
@@ -208,7 +212,7 @@ const createProduction = async (req, res) => {
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
         `, [
           machineId, part_number, lot_number, d.qty,
-          d.type, defectCodeId, operator_name, shift || 'A',
+          d.type, defectCodeId, operator_name, shiftValue,
         ]);
       } catch (ieErr) {
         console.warn('[KPI] inspection_entries insert failed:', ieErr.message);

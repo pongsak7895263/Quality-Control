@@ -19,14 +19,17 @@ const SECTIONS = [
 const KPIEditData = ({ onRefresh }) => {
   const [section, setSection] = useState('production');
   const [filters, setFilters] = useState({
-    searchMode: 'all',  // date | month | all
+    searchMode: 'all',
     date: new Date().toISOString().split('T')[0],
     month: new Date().toISOString().slice(0, 7),
-    line: 'ALL', shift: 'ALL',
+    line: 'ALL', shift: 'ALL', partNumber: '',
   });
 
   // ─── Production Data ──────────────────────────────────────
   const [prodRecords, setProdRecords] = useState([]);
+  const [prodTotal, setProdTotal] = useState(0);
+  const [prodPage, setProdPage] = useState(1);
+  const [prodLimit, setProdLimit] = useState(100);
   const [editingProd, setEditingProd] = useState(null);
   const [editingDefects, setEditingDefects] = useState([]);
   const [loadingProd, setLoadingProd] = useState(false);
@@ -50,32 +53,35 @@ const KPIEditData = ({ onRefresh }) => {
   const fetchProduction = useCallback(async () => {
     setLoadingProd(true);
     try {
-      const params = { line: filters.line, shift: filters.shift };
+      const params = { line: filters.line, shift: filters.shift, page: prodPage, limit: prodLimit };
       if (filters.searchMode === 'date') params.date = filters.date;
       else if (filters.searchMode === 'month') params.month = filters.month;
+      if (filters.partNumber) params.partNumber = filters.partNumber;
 
-      console.log('[Edit] Fetching with params:', params);
       const res = await apiClient.get('/kpi/edit/production', { params });
-      console.log('[Edit] Raw response:', JSON.stringify(res).substring(0, 300));
       
-      // Robust parsing: apiClient อาจ return res.data หรือ res.data.data
       let rows = [];
+      let total = 0;
       if (res && res.data && Array.isArray(res.data.data)) {
-        rows = res.data.data;                    // axios: res.data = { success, data: [...] }
+        rows = res.data.data;
+        total = res.data.total || rows.length;
       } else if (res && Array.isArray(res.data)) {
-        rows = res.data;                         // axios: res.data = [...]
+        rows = res.data;
+        total = rows.length;
       } else if (res && res.success && Array.isArray(res.data)) {
-        rows = res.data;                         // apiClient unwrap: { success, data: [...] }
+        rows = res.data;
+        total = res.total || rows.length;
       } else if (Array.isArray(res)) {
-        rows = res;                              // direct array
+        rows = res;
+        total = rows.length;
       }
       
-      console.log('[Edit] Parsed rows:', rows.length, rows.length > 0 ? 'first=' + rows[0]?.line_no : '');
       setProdRecords(rows);
+      setProdTotal(total);
     } catch (err) {
       console.error('Fetch production error:', err?.response?.data || err.message || err);
     } finally { setLoadingProd(false); }
-  }, [filters]);
+  }, [filters, prodPage, prodLimit]);
 
   const openEditProd = async (record) => {
     try {
@@ -193,13 +199,13 @@ const KPIEditData = ({ onRefresh }) => {
     panel: { background: '#0f172a', borderRadius: 8, border: '1px solid #1e293b', marginBottom: 16 },
     head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1e293b' },
     body: { padding: 16 },
-    title: { color: '#e2e8f0', fontSize: 14, fontWeight: 700, margin: 0 },
-    label: { display: 'block', color: '#94a3b8', fontSize: 11, marginBottom: 4, fontWeight: 600 },
-    input: { width: '100%', padding: '7px 10px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0', fontSize: 13 },
+    title: { color: '#e2e8f0', fontSize: 16, fontWeight: 700, margin: 0 },
+    label: { display: 'block', color: '#94a3b8', fontSize: 13, marginBottom: 4, fontWeight: 600 },
+    input: { width: '100%', padding: '7px 10px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0', fontSize: 15 },
     grid: (n) => ({ display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: 12 }),
-    btn: (c) => ({ padding: '6px 14px', background: `${c}20`, border: `1px solid ${c}50`, borderRadius: 6, color: c, cursor: 'pointer', fontWeight: 600, fontSize: 12 }),
-    btnSm: (c) => ({ padding: '4px 10px', background: `${c}20`, border: `1px solid ${c}40`, borderRadius: 4, color: c, cursor: 'pointer', fontSize: 11 }),
-    tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${c}20`, color: c }),
+    btn: (c) => ({ padding: '6px 14px', background: `${c}20`, border: `1px solid ${c}50`, borderRadius: 6, color: c, cursor: 'pointer', fontWeight: 600, fontSize: 14 }),
+    btnSm: (c) => ({ padding: '4px 10px', background: `${c}20`, border: `1px solid ${c}40`, borderRadius: 4, color: c, cursor: 'pointer', fontSize: 13 }),
+    tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${c}20`, color: c }),
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -210,7 +216,7 @@ const KPIEditData = ({ onRefresh }) => {
       {/* Message Toast */}
       {message && (
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, padding: '12px 24px', borderRadius: 8,
-          background: message.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontWeight: 600, fontSize: 14,
+          background: message.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontWeight: 600, fontSize: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
           {message.text}
         </div>
@@ -220,7 +226,7 @@ const KPIEditData = ({ onRefresh }) => {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => { setSection(s.id); setEditingProd(null); setEditingClaim(null); }}
-            style={{ padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+            style={{ padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 15,
               background: section === s.id ? `${s.color}30` : '#0f172a',
               border: `1px solid ${section === s.id ? s.color : '#334155'}`,
               color: section === s.id ? s.color : '#64748b' }}>
@@ -237,7 +243,7 @@ const KPIEditData = ({ onRefresh }) => {
           {/* Filters */}
           <div style={S.panel}>
             <div style={{ ...S.head, flexWrap: 'wrap', gap: 8 }}>
-              <h3 style={S.title}>📊 รายการผลผลิต ({prodRecords.length} รายการ)</h3>
+              <h3 style={S.title}>📊 รายการผลผลิต ({prodRecords.length}/{prodTotal} รายการ)</h3>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 {/* Search Mode Toggle */}
                 <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #334155' }}>
@@ -247,7 +253,7 @@ const KPIEditData = ({ onRefresh }) => {
                     { id: 'all', label: '📋 ทั้งหมด' },
                   ].map(m => (
                     <button key={m.id} onClick={() => setFilters(p => ({ ...p, searchMode: m.id }))}
-                      style={{ padding: '6px 12px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                      style={{ padding: '6px 12px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                         background: filters.searchMode === m.id ? '#3b82f6' : '#1e293b',
                         color: filters.searchMode === m.id ? '#fff' : '#64748b' }}>
                       {m.label}
@@ -270,17 +276,37 @@ const KPIEditData = ({ onRefresh }) => {
                   <option value="Line-PD5">Line-PD5</option>
                   <option value="Line-MC">Line-MC</option>
                 </select>
-                <button onClick={fetchProduction} style={S.btn('#3b82f6')}>🔍 ค้นหา</button>
+                <select style={{ ...S.input, width: 'auto' }} value={filters.shift}
+                  onChange={e => setFilters(p => ({ ...p, shift: e.target.value }))}>
+                  <option value="ALL">ทุก Shift</option>
+                  <option value="A">Shift A</option>
+                  <option value="B">Shift B</option>
+                  <option value="AB">Shift AB</option>
+                  <option value="Cutting">Cutting</option>
+                </select>
+                <input type="text" placeholder="🔍 Part No." style={{ ...S.input, width: 120 }}
+                  value={filters.partNumber}
+                  onChange={e => setFilters(p => ({ ...p, partNumber: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && fetchProduction()} />
+                <button onClick={() => { setProdPage(1); fetchProduction(); }} style={S.btn('#3b82f6')}>🔍 ค้นหา</button>
+                <select style={{ ...S.input, width: 'auto' }} value={prodLimit}
+                  onChange={e => { setProdLimit(parseInt(e.target.value)); setProdPage(1); }}>
+                  <option value={50}>50 รายการ</option>
+                  <option value={100}>100 รายการ</option>
+                  <option value={200}>200 รายการ</option>
+                  <option value={500}>500 รายการ</option>
+                  <option value={9999}>ทั้งหมด</option>
+                </select>
               </div>
             </div>
             <div style={S.body}>
               {loadingProd ? <div style={{ textAlign: 'center', color: '#64748b' }}>⏳ โหลด...</div> :
               prodRecords.length === 0 ? <div style={{ textAlign: 'center', color: '#475569', padding: 24 }}>ไม่พบข้อมูล — ลองเปลี่ยนเป็น "📅 เดือน" หรือ "📋 ทั้งหมด"</div> :
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #334155' }}>
                     {['วันที่', 'Line', 'Part No.', 'Shift', 'Operator', 'ผลิต', 'ดี', 'ซ่อม', 'ทิ้ง', 'Good%', 'จัดการ'].map(h =>
-                      <th key={h} style={{ padding: '8px 6px', color: '#94a3b8', fontSize: 11, textAlign: 'center' }}>{h}</th>
+                      <th key={h} style={{ padding: '8px 6px', color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>{h}</th>
                     )}
                   </tr>
                 </thead>
@@ -309,7 +335,48 @@ const KPIEditData = ({ onRefresh }) => {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  {(() => {
+                    const sumTp = prodRecords.reduce((s, r) => s + (Number(r.total_produced) || 0), 0);
+                    const sumGood = prodRecords.reduce((s, r) => s + (Number(r.good_qty) || 0), 0);
+                    const sumRw = prodRecords.reduce((s, r) => s + (Number(r.rework_qty) || 0), 0);
+                    const sumSc = prodRecords.reduce((s, r) => s + (Number(r.scrap_qty) || 0), 0);
+                    const sumFg = prodRecords.reduce((s, r) => s + (Number(r.final_good) || 0), 0);
+                    const avgGp = sumTp > 0 ? ((sumFg / sumTp) * 100).toFixed(1) : '0';
+                    const rwPct = sumTp > 0 ? ((sumRw / sumTp) * 100).toFixed(2) : '0';
+                    const scPct = sumTp > 0 ? ((sumSc / sumTp) * 100).toFixed(2) : '0';
+                    return (
+                      <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
+                        <td colSpan={5} style={{ padding: '8px 6px', color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>
+                          รวม {prodRecords.length} รายการ
+                        </td>
+                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: '#e2e8f0', fontSize: 15 }}>{sumTp.toLocaleString()}</td>
+                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: '#10b981', fontSize: 15 }}>{sumGood.toLocaleString()}</td>
+                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: '#f59e0b', fontSize: 15 }}>
+                          {sumRw.toLocaleString()} <span style={{ fontSize: 11, color: '#f59e0b80' }}>({rwPct}%)</span>
+                        </td>
+                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: '#ef4444', fontSize: 15 }}>
+                          {sumSc.toLocaleString()} <span style={{ fontSize: 11, color: '#ef444480' }}>({scPct}%)</span>
+                        </td>
+                        <td style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: '#10b981', fontSize: 15 }}>{avgGp}%</td>
+                        <td></td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
               </table>}
+              {/* Pagination */}
+              {prodTotal > prodLimit && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                  <button disabled={prodPage <= 1} onClick={() => setProdPage(p => Math.max(1, p - 1))}
+                    style={{ ...S.btnSm('#3b82f6'), opacity: prodPage <= 1 ? 0.3 : 1 }}>◀ ก่อนหน้า</button>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>
+                    หน้า {prodPage} / {Math.ceil(prodTotal / prodLimit)} ({prodTotal} รายการ)
+                  </span>
+                  <button disabled={prodPage >= Math.ceil(prodTotal / prodLimit)} onClick={() => setProdPage(p => p + 1)}
+                    style={{ ...S.btnSm('#3b82f6'), opacity: prodPage >= Math.ceil(prodTotal / prodLimit) ? 0.3 : 1 }}>ถัดไป ▶</button>
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -382,7 +449,7 @@ const KPIEditData = ({ onRefresh }) => {
 
               {/* Row 3: ยอดผลิต */}
               <div style={{ marginTop: 16, padding: 14, background: '#1e293b', borderRadius: 8, border: '1px solid #334155' }}>
-                <h4 style={{ color: '#e2e8f0', fontSize: 12, marginBottom: 12, margin: '0 0 12px 0' }}>📊 ยอดผลิตและผลตรวจสอบ</h4>
+                <h4 style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 12, margin: '0 0 12px 0' }}>📊 ยอดผลิตและผลตรวจสอบ</h4>
                 <div style={S.grid(6)}>
                   {[
                     { key: 'total_produced', label: 'ยอดผลิตรวม', color: '#e2e8f0' },
@@ -394,7 +461,7 @@ const KPIEditData = ({ onRefresh }) => {
                   ].map(f => (
                     <div key={f.key}>
                       <label style={{ ...S.label, color: f.color }}>{f.label}</label>
-                      <input style={{ ...S.input, borderColor: f.color + '50', textAlign: 'center', fontSize: 16, fontWeight: 700 }}
+                      <input style={{ ...S.input, borderColor: f.color + '50', textAlign: 'center', fontSize: 18, fontWeight: 700 }}
                         type="number" value={editingProd[f.key] ?? ''}
                         onChange={e => setEditingProd(p => ({ ...p, [f.key]: e.target.value }))} />
                     </div>
@@ -428,9 +495,9 @@ const KPIEditData = ({ onRefresh }) => {
                         <span style={{ ...S.tag(d.defect_type === 'scrap' ? '#ef4444' : '#f59e0b') }}>
                           #{idx + 1} {d.defect_type === 'scrap' ? '❌ Scrap' : '🔧 Rework'}
                         </span>
-                        {d.f07_doc_no && <span style={{ color: '#8b5cf6', fontSize: 11 }}>📋 {d.f07_doc_no}</span>}
-                        {d.bin_no && <span style={{ color: '#64748b', fontSize: 11 }}>ถัง: {d.bin_no}</span>}
-                        {d.defect_code && <span style={{ color: '#3b82f6', fontSize: 11 }}>{d.defect_code} {d.defect_name ? `- ${d.defect_name}` : ''}</span>}
+                        {d.f07_doc_no && <span style={{ color: '#8b5cf6', fontSize: 13 }}>📋 {d.f07_doc_no}</span>}
+                        {d.bin_no && <span style={{ color: '#64748b', fontSize: 13 }}>ถัง: {d.bin_no}</span>}
+                        {d.defect_code && <span style={{ color: '#3b82f6', fontSize: 13 }}>{d.defect_code} {d.defect_name ? `- ${d.defect_name}` : ''}</span>}
                       </div>
                       <button onClick={() => setEditingDefects(prev => prev.map(x => x.id === d.id ? { ...x, _deleted: true } : x))}
                         style={S.btnSm('#ef4444')}>🗑️ ลบ</button>
@@ -526,7 +593,7 @@ const KPIEditData = ({ onRefresh }) => {
           {/* ─── Save / Delete / Cancel ─── */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
               <button onClick={saveProd} disabled={saving}
-                style={{ flex: 1, padding: '14px', fontSize: 15, fontWeight: 700, borderRadius: 8,
+                style={{ flex: 1, padding: '14px', fontSize: 17, fontWeight: 700, borderRadius: 8,
                   background: saving ? '#475569' : 'linear-gradient(135deg, #10b981, #059669)',
                   border: 'none', color: '#fff', cursor: saving ? 'wait' : 'pointer' }}>
                 {saving ? '⏳ กำลังบันทึก...' : '✅ บันทึกการแก้ไขทั้งหมด'}
@@ -549,11 +616,11 @@ const KPIEditData = ({ onRefresh }) => {
           <div style={S.body}>
             {loadingClaims ? <div style={{ textAlign: 'center', color: '#64748b' }}>⏳</div> :
             claims.length === 0 ? <div style={{ textAlign: 'center', color: '#475569', padding: 24 }}>ไม่มี Claims</div> :
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #334155' }}>
                   {['วันที่', 'ลูกค้า', 'Part', 'ประเภท', 'Defect', 'Shipped', 'PPM', 'สถานะ', 'จัดการ'].map(h =>
-                    <th key={h} style={{ padding: '8px 6px', color: '#94a3b8', fontSize: 11 }}>{h}</th>
+                    <th key={h} style={{ padding: '8px 6px', color: '#94a3b8', fontSize: 13 }}>{h}</th>
                   )}
                 </tr>
               </thead>
@@ -652,7 +719,7 @@ const KPIEditData = ({ onRefresh }) => {
             </div>
             <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
               <button onClick={saveClaim} disabled={saving}
-                style={{ flex: 1, padding: '12px', fontSize: 15, fontWeight: 700, borderRadius: 8,
+                style={{ flex: 1, padding: '12px', fontSize: 17, fontWeight: 700, borderRadius: 8,
                   background: saving ? '#475569' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                   border: 'none', color: '#fff', cursor: saving ? 'wait' : 'pointer' }}>
                 {saving ? '⏳...' : '✅ บันทึกการแก้ไข'}

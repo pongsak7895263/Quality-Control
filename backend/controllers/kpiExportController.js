@@ -17,74 +17,201 @@ try { PDFDocument = require('pdfkit'); } catch (e) { console.warn('⚠️ pdfkit
 // Helper: ดึงข้อมูลรายงาน
 // ═══════════════════════════════════════════════════════════
 const getReportData = async (filters) => {
-  const { date, line, shift } = filters;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const { date, dateFrom, dateTo, month, line, shift, lines, shifts } = filters;
 
-  let conditions = [`dps.production_date = $1`];
-  const params = [targetDate];
-  let idx = 2;
-
-  if (line && line !== 'ALL') {
-    conditions.push(`m.code = $${idx++}`);
-    params.push(line);
+  // ── กำหนดช่วงวันที่ ──────────────────────────────────────
+  let startDate, endDate;
+  if (month) {
+    const [yr, mo] = month.split('-');
+    const lastDay = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+    startDate = `${month}-01`;
+    endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+  } else if (dateFrom && dateTo) {
+    startDate = dateFrom;
+    endDate = dateTo;
+  } else {
+    startDate = date || new Date().toISOString().split('T')[0];
+    endDate = startDate;
   }
-  if (shift && shift !== 'ALL') {
-    conditions.push(`dps.shift = $${idx++}`);
-    params.push(shift);
+
+  // ── Parse multi-select (comma-separated) ──────────────────
+  const selectedLines = (lines || line || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+  const selectedShifts = (shifts || shift || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+  const isAllLines = selectedLines.includes('ALL') || selectedLines.length === 0;
+  const isAllShifts = selectedShifts.includes('ALL') || selectedShifts.length === 0;
+
+  // ── Build WHERE conditions ─────────────────────────────────
+  let plConditions = [`pl.production_date BETWEEN $1 AND $2`];
+  let dpsConditions = [`dps.production_date BETWEEN $1 AND $2`];
+  const params = [startDate, endDate];
+  let idx = 3;
+
+  if (!isAllLines) {
+    // สร้าง: (pl.line IN ($3,$4,...) OR pl.line IN ($N,$N+1,...))
+    const plPlaceholders = [];
+    const dpsPlaceholders = [];
+    for (const l of selectedLines) {
+      const stripped = l.replace(/^Line-?/i, '').trim();
+      plPlaceholders.push(`$${idx}`, `$${idx + 1}`);
+      dpsPlaceholders.push(`$${idx}`, `$${idx + 1}`);
+      params.push(l, stripped);
+      idx += 2;
+    }
+    plConditions.push(`(pl.line IN (${plPlaceholders.join(',')}))`);
+    dpsConditions.push(`(m.code IN (${dpsPlaceholders.join(',')}))`);
   }
 
-  const where = conditions.join(' AND ');
+  if (!isAllShifts) {
+    const shiftPlaceholders = selectedShifts.map(() => `$${idx++}`);
+    params.push(...selectedShifts);
+    plConditions.push(`pl.shift IN (${shiftPlaceholders.join(',')})`);
+    dpsConditions.push(`dps.shift IN (${shiftPlaceholders.join(',')})`);
+  }
 
-  // Summary records
-  const summaryRes = await query(`
-    SELECT 
-      dps.id, dps.production_date, m.code AS line_no, m.name AS line_name,
-      dps.part_number, dps.shift, dps.operator_name,
-      dps.total_produced, dps.good_qty, dps.rework_qty, dps.scrap_qty,
-      dps.rework_good_qty, dps.rework_scrap_qty, dps.rework_pending_qty,
-      dps.good_pct, dps.reject_pct, dps.rework_pct,
-      (dps.good_qty + dps.rework_good_qty) AS final_good,
-      (dps.scrap_qty + dps.rework_scrap_qty) AS final_reject,
-      dps.notes
-    FROM daily_production_summary dps
-    JOIN machines m ON dps.machine_id = m.id
-    WHERE ${where}
-    ORDER BY m.code, dps.shift
+  const plWhere = plConditions.join(' AND ');
+  const dpsWhere = dpsConditions.join(' AND ');
+
+  // ── 1. ยอดผลิตจาก production_log ──────────────────────────
+  const prodRes = await query(`
+    SELECT
+      CASE WHEN pl.line ILIKE 'Line%' THEN pl.line ELSE 'Line-' || pl.line END AS line_no,
+      pl.part_number, pl.part_name, pl.shift, pl.operator,
+      pl.production_date,
+      SUM(pl.total_produced) AS total_produced,
+      SUM(pl.total_good) AS total_good,
+      SUM(pl.total_ng) AS total_ng,
+      SUM(pl.total_bins) AS total_bins
+    FROM production_log pl
+    WHERE ${plWhere}
+    GROUP BY pl.line, pl.part_number, pl.part_name, pl.shift, pl.operator, pl.production_date
+    ORDER BY pl.production_date, pl.line, pl.shift
   `, params);
 
-  // Defect details
+  // ── 2. ของเสียจาก daily_production_summary ─────────────────
+  const defectSumRes = await query(`
+    SELECT
+      CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END AS line_no,
+      dps.part_number, dps.part_name, dps.shift, dps.operator_name,
+      dps.production_date,
+      SUM(dps.rework_qty) AS rework_qty,
+      SUM(dps.scrap_qty) AS scrap_qty,
+      SUM(dps.rework_good_qty) AS rework_good_qty,
+      SUM(dps.rework_scrap_qty) AS rework_scrap_qty,
+      SUM(dps.rework_pending_qty) AS rework_pending_qty
+    FROM daily_production_summary dps
+    LEFT JOIN machines m ON dps.machine_id = m.id
+    WHERE ${dpsWhere}
+    GROUP BY m.code, dps.part_number, dps.part_name, dps.shift, dps.operator_name, dps.production_date
+    ORDER BY dps.production_date, m.code, dps.shift
+  `, params);
+
+  // ── 3. Defect details ──────────────────────────────────────
   const defectRes = await query(`
-    SELECT 
+    SELECT
       dd.*, dc.code AS defect_code, dc.name AS defect_name, dc.category,
-      m.code AS line_no, dps.part_number, dps.shift
+      CASE WHEN m.code ILIKE 'Line%' THEN m.code ELSE 'Line-' || m.code END AS line_no,
+      dps.part_number, dps.shift, dps.production_date
     FROM defect_detail dd
     JOIN daily_production_summary dps ON dd.summary_id = dps.id
-    JOIN machines m ON dps.machine_id = m.id
+    LEFT JOIN machines m ON dps.machine_id = m.id
     LEFT JOIN defect_codes dc ON dd.defect_code_id = dc.id
-    WHERE ${where}
-    ORDER BY m.code, dd.id
+    WHERE ${dpsWhere}
+    ORDER BY dps.production_date, m.code, dd.id
   `, params);
 
-  // Totals
-  const totals = summaryRes.rows.reduce((acc, r) => ({
-    total_produced: acc.total_produced + Number(r.total_produced || 0),
-    good_qty: acc.good_qty + Number(r.good_qty || 0),
-    rework_qty: acc.rework_qty + Number(r.rework_qty || 0),
-    scrap_qty: acc.scrap_qty + Number(r.scrap_qty || 0),
-    rework_good: acc.rework_good + Number(r.rework_good_qty || 0),
-    rework_scrap: acc.rework_scrap + Number(r.rework_scrap_qty || 0),
-    final_good: acc.final_good + Number(r.final_good || 0),
-    final_reject: acc.final_reject + Number(r.final_reject || 0),
+  // ── 4. Merge production + defects ──────────────────────────
+  // Key: date|line|part|shift
+  const merged = {};
+
+  for (const p of prodRes.rows) {
+    const key = `${p.production_date}|${p.line_no}|${p.part_number}|${p.shift}`;
+    merged[key] = {
+      production_date: p.production_date,
+      line_no: p.line_no,
+      part_number: p.part_number,
+      part_name: p.part_name || '',
+      shift: p.shift || 'A',
+      operator_name: p.operator || '',
+      total_produced: Number(p.total_produced) || 0,
+      good_qty: Number(p.total_good) || 0,
+      rework_qty: 0,
+      scrap_qty: 0,
+      rework_good_qty: 0,
+      rework_scrap_qty: 0,
+      rework_pending_qty: 0,
+      total_ng_prod: Number(p.total_ng) || 0,
+    };
+  }
+
+  for (const d of defectSumRes.rows) {
+    const key = `${d.production_date}|${d.line_no}|${d.part_number}|${d.shift}`;
+    if (!merged[key]) {
+      merged[key] = {
+        production_date: d.production_date,
+        line_no: d.line_no,
+        part_number: d.part_number,
+        part_name: d.part_name || '',
+        shift: d.shift || 'A',
+        operator_name: d.operator_name || '',
+        total_produced: 0,
+        good_qty: 0,
+        total_ng_prod: 0,
+      };
+    }
+    merged[key].rework_qty = Number(d.rework_qty) || 0;
+    merged[key].scrap_qty = Number(d.scrap_qty) || 0;
+    merged[key].rework_good_qty = Number(d.rework_good_qty) || 0;
+    merged[key].rework_scrap_qty = Number(d.rework_scrap_qty) || 0;
+    merged[key].rework_pending_qty = Number(d.rework_pending_qty) || 0;
+  }
+
+  const records = Object.values(merged).map(r => ({
+    ...r,
+    final_good: r.good_qty + (r.rework_good_qty || 0),
+    final_reject: r.scrap_qty + (r.rework_scrap_qty || 0),
+  }));
+
+  // ── 5. Totals ──────────────────────────────────────────────
+  const totals = records.reduce((acc, r) => ({
+    total_produced: acc.total_produced + r.total_produced,
+    good_qty: acc.good_qty + r.good_qty,
+    rework_qty: acc.rework_qty + r.rework_qty,
+    scrap_qty: acc.scrap_qty + r.scrap_qty,
+    rework_good: acc.rework_good + (r.rework_good_qty || 0),
+    rework_scrap: acc.rework_scrap + (r.rework_scrap_qty || 0),
+    rework_pending: acc.rework_pending + (r.rework_pending_qty || 0),
+    final_good: acc.final_good + r.final_good,
+    final_reject: acc.final_reject + r.final_reject,
   }), {
     total_produced: 0, good_qty: 0, rework_qty: 0, scrap_qty: 0,
-    rework_good: 0, rework_scrap: 0, final_good: 0, final_reject: 0,
+    rework_good: 0, rework_scrap: 0, rework_pending: 0,
+    final_good: 0, final_reject: 0,
   });
 
+  // ── 6. Line summary ───────────────────────────────────────
+  const lineMap = {};
+  records.forEach(r => {
+    if (!lineMap[r.line_no]) lineMap[r.line_no] = { total: 0, rework: 0, scrap: 0 };
+    lineMap[r.line_no].total += r.total_produced;
+    lineMap[r.line_no].rework += r.rework_qty;
+    lineMap[r.line_no].scrap += r.scrap_qty;
+  });
+  const lineSummary = Object.entries(lineMap).map(([line, d]) => ({
+    line, ...d,
+    rework_pct: d.total > 0 ? ((d.rework / d.total) * 100).toFixed(2) : '0',
+    scrap_pct: d.total > 0 ? ((d.scrap / d.total) * 100).toFixed(2) : '0',
+  })).sort((a, b) => b.total - a.total);
+
   return {
-    date: targetDate,
-    records: summaryRes.rows,
+    startDate, endDate,
+    isRange: startDate !== endDate,
+    records: records.sort((a, b) => {
+      const d = String(a.production_date).localeCompare(String(b.production_date));
+      return d !== 0 ? d : (a.line_no || '').localeCompare(b.line_no || '');
+    }),
     defects: defectRes.rows,
     totals,
+    lineSummary,
   };
 };
 

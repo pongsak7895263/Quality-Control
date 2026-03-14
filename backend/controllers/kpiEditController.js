@@ -17,7 +17,8 @@ const query = async (text, params) => db.query(text, params);
 /** GET /api/kpi/edit/production — ดึงรายการผลผลิต (กรองได้) */
 const listProduction = async (req, res) => {
   try {
-    const { date, month, line, shift, page = 1, limit = 50 } = req.query;
+    console.log('[Edit] === listProduction called ===', req.query);
+    const { date, month, line, shift, partNumber, page = 1, limit = 500 } = req.query;
     const conditions = [];
     const params = [];
     let idx = 1;
@@ -29,10 +30,10 @@ const listProduction = async (req, res) => {
       conditions.push(`TO_CHAR(dps.production_date,'YYYY-MM') = $${idx++}`);
       params.push(month);
     }
-    // ถ้าไม่ส่ง date/month → แสดงทั้งหมด (limit 50)
 
     if (line && line !== 'ALL') { conditions.push(`m.code = $${idx++}`); params.push(line); }
     if (shift && shift !== 'ALL') { conditions.push(`dps.shift = $${idx++}`); params.push(shift); }
+    if (partNumber && partNumber !== 'ALL') { conditions.push(`dps.part_number ILIKE $${idx++}`); params.push(`%${partNumber}%`); }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
     const offset = (parseInt(page) - 1) * parseInt(limit);

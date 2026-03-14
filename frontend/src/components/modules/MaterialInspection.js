@@ -737,6 +737,7 @@ const MaterialInspection = () => {
     "Nakayama Steel Works LTD",
     "JFE Steel Corporation",
     "Bangkok Steel Co., Ltd.",
+    "FENG HSIN STEEL CO.,LTD",
     "HUAIGANG",
   ], []);
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import './Sidebar.css'; 
+import './Sidebar.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faChartLine, faBoxOpen, faFlask, faTemperatureHigh,
@@ -38,8 +38,10 @@ const MENU_GROUPS = [
         title: "Management & Standards",
         items: [
             { path: "/Kpimonitoring/KPIDashboard", name: "KPI Monitoring", icon: faChartLine },
+            { path: "/TroubleHistory", name: "TroubleHistory", icon: faClipboardCheck },
+
             { path: "/Calibrations", name: "Calibration (สอบเทียบ)", icon: faBalanceScale },
-            { path: "/msa", name: "MSA (ระบบวัด)", icon: faRulerCombined }, 
+            { path: "/msa", name: "MSA (ระบบวัด)", icon: faRulerCombined },
             { path: "/inspections/doc", name: "Documents (ISO/IATF)", icon: faFileContract },
         ]
     },
@@ -85,7 +87,7 @@ const Sidebar = () => {
                     <div key={groupIndex} className="menu-group">
                         {/* ซ่อนชื่อกลุ่มเมื่อเมนูถูกยุบ */}
                         {!isCollapsed && <div className="group-title">{group.title}</div>}
-                        
+
                         {group.items.map((item) => (
                             <NavLink
                                 key={item.path}
@@ -104,12 +106,12 @@ const Sidebar = () => {
                     </div>
                 ))}
             </nav>
-            
+
             {/* Footer / Logout Zone (Optional) */}
             <div className="sidebar-footer">
                 <div className="nav-item logout">
-                     <span className="nav-icon"><FontAwesomeIcon icon={faSignOutAlt} /></span>
-                     {!isCollapsed && <span className="nav-text">Logout</span>}
+                    <span className="nav-icon"><FontAwesomeIcon icon={faSignOutAlt} /></span>
+                    {!isCollapsed && <span className="nav-text">Logout</span>}
                 </div>
             </div>
         </aside>

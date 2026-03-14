@@ -18,6 +18,7 @@ import KPIReport from './KPIReport';
 import KPIEditData from './KPIEditData';
 import KPIPartMaster from './KPIPartMaster';
 import KPIProductionLog from './KPIProductionLog';
+import KPIMonthlySummary from './KPIMonthlySummary';
 import apiClient from '../../../utils/api';
 import { calculatePPM, calculatePercent } from '../../../utils/calculations';
 import {
@@ -116,9 +117,10 @@ const transformApiData = (dashboardRes, valuesRes) => {
     totalProdLogTotal += prodLogTotal || total;
   });
 
-  // ── Summary — ยอดจาก production_log (ฝ่ายผลิต) ────────────────
-  const s = dashboardRes?.summary || {};
-  const totalProduced = totalProdLogTotal || Number(s.total_produced || 0);
+  // ── Summary — ยอดจาก production_log + ของเสียจาก dps ────────
+  // ใช้ internal (จาก /kpi/values) เป็นหลัก เพราะดึงจาก production_log + dps ถูกต้อง
+  // ไม่ใช้ dashboardRes.summary เพราะดึงจาก inspection_entries (อาจไม่ครบ)
+  const totalProduced = totalProdLogTotal;
   const totalRework   = prodRework.count + machRework.count;
   const totalScrap    = prodScrap.count;
   const totalGood     = Math.max(0, totalProduced - totalRework - totalScrap);
@@ -308,6 +310,7 @@ const KPIDashboard = () => {
     { id: 'edit', label: 'แก้ไขข้อมูล', icon: '✏️' },
     { id: 'prodlog', label: 'ยอดผลิต', icon: '🏭' },
     { id: 'parts', label: 'Part Master', icon: '📦' },
+    { id: 'monthly', label: 'สรุปรายเดือน', icon: '📅' },
   ];
 
   // ─── Render ───────────────────────────────────────────────────
@@ -495,6 +498,9 @@ const KPIDashboard = () => {
             )}
             {activeTab === 'parts' && (
               <KPIPartMaster />
+            )}
+            {activeTab === 'monthly' && (
+              <KPIMonthlySummary />
             )}
           </>
         )}

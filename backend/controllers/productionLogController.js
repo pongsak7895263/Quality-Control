@@ -28,6 +28,13 @@ const createLog = async (req, res) => {
     }
 
     // Insert production_log
+    // Auto-calculate total ถ้าไม่ส่งมา หรือไม่ตรง
+    const calcGood = parseInt(total_good) || 0;
+    const calcNG = parseInt(total_ng) || 0;
+    const calcTotal = parseInt(total_produced) || (calcGood + calcNG);
+    // ป้องกัน total < good + ng
+    const finalTotal = Math.max(calcTotal, calcGood + calcNG);
+
     const logRes = await client.query(`
       INSERT INTO production_log (
         production_date, line, shift, operator,
@@ -39,7 +46,7 @@ const createLog = async (req, res) => {
       production_date || new Date().toISOString().split('T')[0],
       line, shift || 'A', operator || null,
       part_number, part_name || null, lot_number || null,
-      total_good || 0, total_ng || 0, total_produced || 0, bins.length,
+      calcGood, calcNG, finalTotal, bins.length,
     ]);
 
     const logId = logRes.rows[0].id;

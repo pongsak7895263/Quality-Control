@@ -8,15 +8,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../../../utils/api';
 
 const S = {
-  input: { padding: '7px 10px', background: '#0f172a', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0', width: '100%', fontSize: 13, boxSizing: 'border-box' },
-  label: { display: 'block', marginBottom: 3, color: '#94a3b8', fontSize: 11, fontWeight: 600 },
+  input: { padding: '7px 10px', background: '#0f172a', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0', width: '100%', fontSize: 15, boxSizing: 'border-box' },
+  label: { display: 'block', marginBottom: 3, color: '#94a3b8', fontSize: 13, fontWeight: 600 },
   panel: { background: '#111827', border: '1px solid #1e293b', borderRadius: 8, marginBottom: 16 },
   head: (c) => ({ padding: '10px 16px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: c ? `3px solid ${c}` : 'none' }),
   body: { padding: 16 },
-  title: { color: '#e2e8f0', fontSize: 14, fontWeight: 700, margin: 0 },
+  title: { color: '#e2e8f0', fontSize: 16, fontWeight: 700, margin: 0 },
   grid: (n) => ({ display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: 10 }),
-  btn: (bg, c) => ({ padding: '7px 16px', background: bg, border: `1px solid ${c || bg}`, borderRadius: 6, color: c || '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }),
-  tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${c}20`, color: c, display: 'inline-block' }),
+  btn: (bg, c) => ({ padding: '7px 16px', background: bg, border: `1px solid ${c || bg}`, borderRadius: 6, color: c || '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600 }),
+  tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${c}20`, color: c, display: 'inline-block' }),
   statBox: (c) => ({ padding: '8px 10px', background: '#1e293b', borderRadius: 6, textAlign: 'center', borderLeft: `3px solid ${c}` }),
 };
 
@@ -469,7 +469,7 @@ const KPIProductionLog = () => {
                     placeholder="W21-04" value={partNumber}
                     onChange={e => onPartChange(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && lookupPart(partNumber)} />
-                  {partInfo && <div style={{ fontSize: 10, color: '#10b981', marginTop: 2 }}>✅ {partInfo.part_name}</div>}
+                  {partInfo && <div style={{ fontSize: 12, color: '#10b981', marginTop: 2 }}>✅ {partInfo.part_name}</div>}
                 </div>
               </div>
               <div style={{ ...S.grid(2), marginTop: 10 }}>
@@ -487,7 +487,7 @@ const KPIProductionLog = () => {
               </div>
               {/* Part Info */}
               {partInfo && (
-                <div style={{ marginTop: 10, padding: '6px 12px', background: '#0f172a', borderRadius: 6, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11 }}>
+                <div style={{ marginTop: 10, padding: '6px 12px', background: '#0f172a', borderRadius: 6, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
                   <span style={{ color: '#94a3b8' }}>👤 {partInfo.customer_name}</span>
                   {partInfo.billet_size && <span style={{ color: '#94a3b8' }}>🔩 {partInfo.billet_size} ({partInfo.billet_weight}g)</span>}
                   {partInfo.billet_material && <span style={S.tag('#3b82f6')}>{partInfo.billet_material}</span>}
@@ -502,11 +502,11 @@ const KPIProductionLog = () => {
             <div style={{ ...S.panel, borderColor: '#f59e0b40' }}>
               <div style={S.head('#f59e0b')}>
                 <h3 style={S.title}>📂 Import Preview — {importData.length} รายการ
-                  <span style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>
+                  <span style={{ fontWeight: 400, fontSize: 13, color: '#94a3b8', marginLeft: 8 }}>
                     (เลือก {importData.filter(r => r.selected).length} | รวม {importData.filter(r => r.selected).reduce((s, r) => s + r.total, 0).toLocaleString()} ชิ้น)
                   </span>
                   {importData.filter(r => !r.partName).length > 0 && (
-                    <span style={{ fontWeight: 400, fontSize: 10, color: '#ef4444', marginLeft: 8 }}>
+                    <span style={{ fontWeight: 400, fontSize: 12, color: '#ef4444', marginLeft: 8 }}>
                       ⚠️ ไม่พบชื่อ {importData.filter(r => !r.partName).length} รายการ (คลิกแก้ไขได้)
                     </span>
                   )}
@@ -524,11 +524,11 @@ const KPIProductionLog = () => {
                 </div>
               </div>
               <div style={{ ...S.body, maxHeight: 400, overflow: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #334155' }}>
                       {['☑', '#', 'วันที่', 'กะ', 'Line', 'Part No.', 'Part Name ✏️', 'Lot No.', '✅ งานดี', '❌ งานเสีย', 'รวม'].map(h =>
-                        <th key={h} style={{ padding: '6px 4px', color: '#64748b', textAlign: 'left', fontSize: 10 }}>{h}</th>
+                        <th key={h} style={{ padding: '6px 4px', color: '#64748b', textAlign: 'left', fontSize: 12 }}>{h}</th>
                       )}
                     </tr>
                   </thead>
@@ -545,7 +545,7 @@ const KPIProductionLog = () => {
                         <td style={{ padding: '4px' }}><span style={S.tag('#8b5cf6')}>{row.line}</span></td>
                         <td style={{ padding: '4px', fontWeight: 600, color: '#e2e8f0' }}>{row.partNo}</td>
                         <td style={{ padding: '3px', minWidth: 140 }}>
-                          <input style={{ ...S.input, padding: '3px 6px', fontSize: 10,
+                          <input style={{ ...S.input, padding: '3px 6px', fontSize: 12,
                             borderColor: row.partName ? '#10b98140' : '#ef444440',
                             color: row.partName ? '#10b981' : '#94a3b8',
                             background: '#0f172a' }}
@@ -562,7 +562,7 @@ const KPIProductionLog = () => {
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
-                      <td colSpan={8} style={{ padding: '8px 4px', fontWeight: 700, color: '#e2e8f0', fontSize: 11 }}>
+                      <td colSpan={8} style={{ padding: '8px 4px', fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>
                         รวม (เลือก {importData.filter(r => r.selected).length} / {importData.length})
                       </td>
                       <td style={{ padding: '8px 4px', fontWeight: 700, color: '#10b981' }}>
@@ -585,7 +585,7 @@ const KPIProductionLog = () => {
           <div style={S.panel}>
             <div style={S.head('#10b981')}>
               <h3 style={S.title}>📦 รายการถังที่ผลิต
-                {rows.length > 0 && <span style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>
+                {rows.length > 0 && <span style={{ fontWeight: 400, fontSize: 13, color: '#94a3b8', marginLeft: 8 }}>
                   ({totalBins} ถัง | ✅ {totalGood.toLocaleString()} | ❌ {totalNG.toLocaleString()} | รวม {totalAll.toLocaleString()})
                 </span>}
               </h3>
@@ -605,7 +605,7 @@ const KPIProductionLog = () => {
                 {/* Header */}
                 <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 120px 1fr 36px', gap: 6, marginBottom: 6 }}>
                   {['#', 'เลขที่ถัง', '✅ ชิ้นงานดี', '❌ ชิ้นงานเสีย', 'หมายเหตุ', ''].map(h =>
-                    <span key={h} style={{ color: '#475569', fontSize: 10, fontWeight: 600 }}>{h}</span>
+                    <span key={h} style={{ color: '#475569', fontSize: 12, fontWeight: 600 }}>{h}</span>
                   )}
                 </div>
                 {rows.map((r, idx) => {
@@ -613,7 +613,7 @@ const KPIProductionLog = () => {
                   return (
                     <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 120px 1fr 36px', gap: 6, marginBottom: 4, alignItems: 'center',
                       padding: '3px 0', background: hasNG ? '#ef444408' : 'transparent', borderRadius: 4 }}>
-                      <span style={{ color: hasNG ? '#ef4444' : '#64748b', fontSize: 11, fontWeight: 600 }}>{idx+1}</span>
+                      <span style={{ color: hasNG ? '#ef4444' : '#64748b', fontSize: 13, fontWeight: 600 }}>{idx+1}</span>
                       <input style={{ ...S.input, padding: '5px 8px' }}
                         placeholder="B-001" value={r.binNo} onChange={e => updateRow(r.id, 'binNo', e.target.value)} />
                       <input style={{ ...S.input, padding: '5px 8px', textAlign: 'center', borderColor: '#10b98140' }}
@@ -625,7 +625,7 @@ const KPIProductionLog = () => {
                       <input style={{ ...S.input, padding: '5px 8px', color: '#64748b' }}
                         placeholder="หมายเหตุ" value={r.note} onChange={e => updateRow(r.id, 'note', e.target.value)} />
                       <button onClick={() => removeRow(r.id)}
-                        style={{ padding: '3px', background: '#ef444415', border: '1px solid #ef444430', borderRadius: 4, color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                        style={{ padding: '3px', background: '#ef444415', border: '1px solid #ef444430', borderRadius: 4, color: '#ef4444', cursor: 'pointer', fontSize: 13 }}>✕</button>
                     </div>
                   );
                 })}
@@ -635,7 +635,7 @@ const KPIProductionLog = () => {
               {rows.length > 0 && (
                 <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
                   <button onClick={handleSubmit} disabled={saving}
-                    style={{ flex: 2, padding: '14px', fontSize: 15, fontWeight: 700, borderRadius: 8,
+                    style={{ flex: 2, padding: '14px', fontSize: 17, fontWeight: 700, borderRadius: 8,
                       background: saving ? '#475569' : 'linear-gradient(135deg, #10b981, #059669)',
                       border: 'none', color: '#fff', cursor: saving ? 'wait' : 'pointer' }}>
                     {saving ? '⏳ กำลังบันทึก...' : `✅ บันทึกยอดผลิต (${totalAll.toLocaleString()} ชิ้น / ${totalBins} ถัง)`}
@@ -666,8 +666,8 @@ const KPIProductionLog = () => {
                     { label: 'Good %', val: ((totalGood / totalAll) * 100).toFixed(2) + '%', c: '#10b981' },
                   ].map((r, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 10px', background: '#1e293b', borderRadius: 4, borderLeft: `3px solid ${r.c}` }}>
-                      <span style={{ color: '#94a3b8', fontSize: 11 }}>{r.label}</span>
-                      <strong style={{ color: r.c, fontSize: 12 }}>{r.val}</strong>
+                      <span style={{ color: '#94a3b8', fontSize: 13 }}>{r.label}</span>
+                      <strong style={{ color: r.c, fontSize: 14 }}>{r.val}</strong>
                     </div>
                   ))}
                   {/* Progress bar */}
@@ -676,7 +676,7 @@ const KPIProductionLog = () => {
                     <div style={{ width: `${(totalNG / totalAll) * 100}%`, background: '#ef4444' }} />
                   </div>
                 </div>
-              ) : <div style={{ textAlign: 'center', color: '#475569', padding: 16, fontSize: 12 }}>เพิ่มถังแล้วระบุจำนวนเพื่อดูสรุป</div>}
+              ) : <div style={{ textAlign: 'center', color: '#475569', padding: 16, fontSize: 14 }}>เพิ่มถังแล้วระบุจำนวนเพื่อดูสรุป</div>}
             </div>
           </div>
 
@@ -688,22 +688,22 @@ const KPIProductionLog = () => {
             </div>
             <div style={{ ...S.body, maxHeight: 320, overflow: 'auto' }}>
               {loadingLogs ? <div style={{ textAlign: 'center', color: '#64748b', padding: 16 }}>⏳ โหลด...</div> :
-              todayLogs.length === 0 ? <div style={{ textAlign: 'center', color: '#475569', padding: 16, fontSize: 12 }}>ยังไม่มีบันทึกวันนี้</div>
+              todayLogs.length === 0 ? <div style={{ textAlign: 'center', color: '#475569', padding: 16, fontSize: 14 }}>ยังไม่มีบันทึกวันนี้</div>
               : todayLogs.map((log, i) => (
                 <div key={i} style={{ padding: '8px 10px', marginBottom: 6, background: '#1e293b', borderRadius: 6,
                   borderLeft: `3px solid ${log.total_ng > 0 ? '#f59e0b' : '#10b981'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                     <strong style={{ color: '#3b82f6' }}>{log.part_number}</strong>
                     <span style={S.tag('#8b5cf6')}>{log.line}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: '#e2e8f0', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: '#e2e8f0', marginTop: 2 }}>
                     {log.part_name && <span>{log.part_name} </span>}
                     {log.lot_number && <span style={{ color: '#f59e0b' }}>| Lot: {log.lot_number}</span>}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 2 }}>
                     ✅ {(log.total_good || 0).toLocaleString()} | ❌ {(log.total_ng || 0).toLocaleString()} | รวม {(log.total_produced || 0).toLocaleString()} | {log.total_bins || 0} ถัง
                   </div>
-                  <div style={{ fontSize: 10, color: '#64748b' }}>Shift {log.shift} | {log.operator}</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Shift {log.shift} | {log.operator}</div>
                 </div>
               ))}
             </div>
@@ -716,7 +716,7 @@ const KPIProductionLog = () => {
         <div style={S.head('#f59e0b')}>
           <h3 style={S.title}>📋 ประวัติการบันทึกยอดผลิต</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ color: '#64748b', fontSize: 11 }}>{filteredLogs.length} / {todayLogs.length} รายการ</span>
+            <span style={{ color: '#64748b', fontSize: 13 }}>{filteredLogs.length} / {todayLogs.length} รายการ</span>
             <button onClick={fetchTodayLogs} style={S.btn('#1e293b', '#64748b')}>🔄</button>
           </div>
         </div>
@@ -728,11 +728,11 @@ const KPIProductionLog = () => {
             <label style={S.label}>ดูตาม</label>
             <div style={{ display: 'flex', gap: 2 }}>
               <button onClick={() => setHistoryMode('date')}
-                style={{ padding: '5px 12px', borderRadius: '4px 0 0 4px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                style={{ padding: '5px 12px', borderRadius: '4px 0 0 4px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   background: historyMode === 'date' ? '#3b82f6' : '#1e293b', color: historyMode === 'date' ? '#fff' : '#64748b',
                   border: `1px solid ${historyMode === 'date' ? '#3b82f6' : '#334155'}` }}>📅 วัน</button>
               <button onClick={() => setHistoryMode('month')}
-                style={{ padding: '5px 12px', borderRadius: '0 4px 4px 0', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                style={{ padding: '5px 12px', borderRadius: '0 4px 4px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   background: historyMode === 'month' ? '#3b82f6' : '#1e293b', color: historyMode === 'month' ? '#fff' : '#64748b',
                   border: `1px solid ${historyMode === 'month' ? '#3b82f6' : '#334155'}` }}>📆 เดือน</button>
             </div>
@@ -771,7 +771,7 @@ const KPIProductionLog = () => {
           </div>
           {(filterPart || filterLine || filterLot) && (
             <button onClick={() => { setFilterPart(''); setFilterLine(''); setFilterLot(''); }}
-              style={{ ...S.btn('#ef444420', '#ef4444'), padding: '5px 10px', fontSize: 10 }}>✕ ล้าง</button>
+              style={{ ...S.btn('#ef444420', '#ef4444'), padding: '5px 10px', fontSize: 12 }}>✕ ล้าง</button>
           )}
         </div>
 
@@ -785,11 +785,11 @@ const KPIProductionLog = () => {
               {filterLine && ` | Line: ${filterLine}`}
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #334155' }}>
                   {['#', 'วันที่', 'Part No.', 'Part Name', 'Lot No.', 'Line', 'Shift', '✅ ดี', '❌ เสีย', 'รวม', 'ถัง', 'Good%', 'Operator', ''].map(h =>
-                    <th key={h} style={{ padding: '8px 5px', color: '#64748b', textAlign: 'left', fontSize: 10, fontWeight: 700 }}>{h}</th>
+                    <th key={h} style={{ padding: '8px 5px', color: '#64748b', textAlign: 'left', fontSize: 12, fontWeight: 700 }}>{h}</th>
                   )}
                 </tr>
               </thead>
@@ -812,13 +812,13 @@ const KPIProductionLog = () => {
                           else next.add(log.id);
                           return next;
                         })}>
-                        <td style={{ padding: '7px 5px', color: '#64748b', fontSize: 10 }}>{idx + 1}</td>
-                        <td style={{ padding: '7px 5px', color: '#3b82f6', fontSize: 11 }}>
+                        <td style={{ padding: '7px 5px', color: '#64748b', fontSize: 12 }}>{idx + 1}</td>
+                        <td style={{ padding: '7px 5px', color: '#3b82f6', fontSize: 13 }}>
                           {log.production_date ? new Date(log.production_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) : '—'}
                         </td>
                         <td style={{ padding: '7px 5px', fontWeight: 700, color: '#3b82f6' }}>{log.part_number}</td>
-                        <td style={{ padding: '7px 5px', color: '#e2e8f0', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{log.part_name || '—'}</td>
-                        <td style={{ padding: '7px 5px', color: '#f59e0b', fontSize: 11 }}>{log.lot_number || '—'}</td>
+                        <td style={{ padding: '7px 5px', color: '#e2e8f0', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>{log.part_name || '—'}</td>
+                        <td style={{ padding: '7px 5px', color: '#f59e0b', fontSize: 13 }}>{log.lot_number || '—'}</td>
                         <td style={{ padding: '7px 5px' }}><span style={S.tag('#8b5cf6')}>{log.line}</span></td>
                         <td style={{ padding: '7px 5px', color: '#94a3b8' }}>{log.shift}</td>
                         <td style={{ padding: '7px 5px', fontWeight: 700, color: '#10b981' }}>{good.toLocaleString()}</td>
@@ -826,15 +826,15 @@ const KPIProductionLog = () => {
                         <td style={{ padding: '7px 5px', fontWeight: 700, color: '#e2e8f0' }}>{total.toLocaleString()}</td>
                         <td style={{ padding: '7px 5px', color: '#8b5cf6' }}>{log.total_bins || 0}</td>
                         <td style={{ padding: '7px 5px' }}>
-                          <span style={{ padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                          <span style={{ padding: '2px 7px', borderRadius: 10, fontSize: 12, fontWeight: 700,
                             background: parseFloat(goodPct) >= 99 ? '#10b98120' : parseFloat(goodPct) >= 95 ? '#f59e0b20' : '#ef444420',
                             color: parseFloat(goodPct) >= 99 ? '#10b981' : parseFloat(goodPct) >= 95 ? '#f59e0b' : '#ef4444' }}>
                             {goodPct}%
                           </span>
                         </td>
-                        <td style={{ padding: '7px 5px', color: '#94a3b8', fontSize: 10 }}>{log.operator || '—'}</td>
+                        <td style={{ padding: '7px 5px', color: '#94a3b8', fontSize: 12 }}>{log.operator || '—'}</td>
                         <td style={{ padding: '7px 5px' }}>
-                          {hasBins && <span style={{ fontSize: 10, color: isExpanded ? '#3b82f6' : '#475569' }}>{isExpanded ? '▲' : '▼'} {log.bins.length}</span>}
+                          {hasBins && <span style={{ fontSize: 12, color: isExpanded ? '#3b82f6' : '#475569' }}>{isExpanded ? '▲' : '▼'} {log.bins.length}</span>}
                         </td>
                       </tr>
                       {isExpanded && hasBins && (
@@ -843,20 +843,20 @@ const KPIProductionLog = () => {
                             <div style={{ padding: '8px 16px 12px 40px', background: '#0f172a' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 100px 100px 1fr', gap: 6, marginBottom: 4 }}>
                                 {['#', 'เลขที่ถัง', '✅ ดี', '❌ เสีย', 'หมายเหตุ'].map(h =>
-                                  <span key={h} style={{ color: '#475569', fontSize: 9, fontWeight: 700 }}>{h}</span>
+                                  <span key={h} style={{ color: '#475569', fontSize: 11, fontWeight: 700 }}>{h}</span>
                                 )}
                               </div>
                               {log.bins.map((bin, bIdx) => (
                                 <div key={bIdx} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 100px 100px 1fr', gap: 6, padding: '3px 0',
                                   borderBottom: '1px solid #1e293b', alignItems: 'center' }}>
-                                  <span style={{ color: '#475569', fontSize: 10 }}>{bIdx + 1}</span>
-                                  <span style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 600 }}>{bin.bin_no || '—'}</span>
-                                  <span style={{ color: '#10b981', fontSize: 11, fontWeight: 600 }}>{(bin.good_qty || 0).toLocaleString()}</span>
-                                  <span style={{ color: (bin.ng_qty || 0) > 0 ? '#ef4444' : '#64748b', fontSize: 11, fontWeight: 600 }}>{(bin.ng_qty || 0).toLocaleString()}</span>
-                                  <span style={{ color: '#64748b', fontSize: 10 }}>{bin.note || ''}</span>
+                                  <span style={{ color: '#475569', fontSize: 12 }}>{bIdx + 1}</span>
+                                  <span style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>{bin.bin_no || '—'}</span>
+                                  <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>{(bin.good_qty || 0).toLocaleString()}</span>
+                                  <span style={{ color: (bin.ng_qty || 0) > 0 ? '#ef4444' : '#64748b', fontSize: 13, fontWeight: 600 }}>{(bin.ng_qty || 0).toLocaleString()}</span>
+                                  <span style={{ color: '#64748b', fontSize: 12 }}>{bin.note || ''}</span>
                                 </div>
                               ))}
-                              <div style={{ marginTop: 6, display: 'flex', gap: 12, fontSize: 10, color: '#64748b' }}>
+                              <div style={{ marginTop: 6, display: 'flex', gap: 12, fontSize: 12, color: '#64748b' }}>
                                 <span>รวม: <strong style={{ color: '#e2e8f0' }}>{log.bins.reduce((s2, b) => s2 + (b.good_qty || 0) + (b.ng_qty || 0), 0).toLocaleString()}</strong> ชิ้น</span>
                                 <span>ดี: <strong style={{ color: '#10b981' }}>{log.bins.reduce((s2, b) => s2 + (b.good_qty || 0), 0).toLocaleString()}</strong></span>
                                 <span>เสีย: <strong style={{ color: '#ef4444' }}>{log.bins.reduce((s2, b) => s2 + (b.ng_qty || 0), 0).toLocaleString()}</strong></span>
@@ -871,19 +871,19 @@ const KPIProductionLog = () => {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid #334155', background: '#0f172a' }}>
-                  <td colSpan={7} style={{ padding: '10px 5px', color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>
+                  <td colSpan={7} style={{ padding: '10px 5px', color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>
                     รวม ({filteredLogs.length} รายการ)
                   </td>
-                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#10b981', fontSize: 13 }}>
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#10b981', fontSize: 15 }}>
                     {filteredLogs.reduce((s, l) => s + (l.total_good || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#ef4444', fontSize: 13 }}>
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#ef4444', fontSize: 15 }}>
                     {filteredLogs.reduce((s, l) => s + (l.total_ng || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#e2e8f0', fontSize: 15 }}>
                     {filteredLogs.reduce((s, l) => s + (l.total_produced || 0), 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#8b5cf6', fontSize: 13 }}>
+                  <td style={{ padding: '10px 5px', fontWeight: 700, color: '#8b5cf6', fontSize: 15 }}>
                     {filteredLogs.reduce((s, l) => s + (l.total_bins || 0), 0)}
                   </td>
                   <td style={{ padding: '10px 5px' }}>
@@ -891,7 +891,7 @@ const KPIProductionLog = () => {
                       const tg = filteredLogs.reduce((s, l) => s + (l.total_good || 0), 0);
                       const tp = filteredLogs.reduce((s, l) => s + (l.total_produced || 0), 0);
                       const p = tp > 0 ? ((tg / tp) * 100).toFixed(1) : '0';
-                      return <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+                      return <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 13, fontWeight: 700,
                         background: '#10b98120', color: '#10b981' }}>{p}%</span>;
                     })()}
                   </td>

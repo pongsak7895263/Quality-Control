@@ -35,9 +35,9 @@ const ESCALATION_RULES = _ESCALATION_RULES || {
 const DS = {
   panel: { background: '#0f172a', borderRadius: 8, border: '1px solid #1e293b', marginTop: 16 },
   panelHead: { padding: '10px 16px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: '#e2e8f0', fontSize: 13, fontWeight: 700, margin: 0 },
-  close: { padding: '4px 10px', background: '#1e293b', border: '1px solid #334155', borderRadius: 4, color: '#94a3b8', cursor: 'pointer', fontSize: 11 },
-  tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${c}20`, color: c, display: 'inline-block' }),
+  title: { color: '#e2e8f0', fontSize: 15, fontWeight: 700, margin: 0 },
+  close: { padding: '4px 10px', background: '#1e293b', border: '1px solid #334155', borderRadius: 4, color: '#94a3b8', cursor: 'pointer', fontSize: 13 },
+  tag: (c) => ({ padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${c}20`, color: c, display: 'inline-block' }),
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -47,7 +47,7 @@ const DS = {
 const BAR_H = 28, BAR_GAP = 6, CHART_W = 100; // % based
 
 const HBarChart = ({ data, maxVal, color, label, onBarClick, selectedIdx }) => {
-  if (!data.length) return <div style={{ color: '#475569', fontSize: 12, padding: 20, textAlign: 'center' }}>ไม่มีข้อมูล</div>;
+  if (!data.length) return <div style={{ color: '#475569', fontSize: 14, padding: 20, textAlign: 'center' }}>ไม่มีข้อมูล</div>;
   const mx = maxVal || Math.max(...data.map(d => d.value), 1);
   const svgH = data.length * (BAR_H + BAR_GAP) + 10;
 
@@ -159,25 +159,25 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
                 { label: isRework ? '🗑️ Scrap ด้วย' : '🔧 Rework ด้วย', value: (isRework ? p.scrap : p.rework).toLocaleString(), c: '#64748b' },
               ].map((item, i) => (
                 <div key={i} style={{ padding: 8, background: '#1e293b', borderRadius: 6, textAlign: 'center', borderLeft: `3px solid ${item.c}` }}>
-                  <div style={{ color: '#64748b', fontSize: 9 }}>{item.label}</div>
-                  <div style={{ color: item.c, fontSize: 15, fontWeight: 700 }}>{item.value}</div>
+                  <div style={{ color: '#64748b', fontSize: 11 }}>{item.label}</div>
+                  <div style={{ color: item.c, fontSize: 17, fontWeight: 700 }}>{item.value}</div>
                 </div>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-              <span style={{ color: '#64748b', fontSize: 10 }}>Lines:</span>
+              <span style={{ color: '#64748b', fontSize: 12 }}>Lines:</span>
               {[...p.lines].map((l, i) => <span key={i} style={DS.tag('#8b5cf6')}>{l}</span>)}
-              <span style={{ color: '#64748b', fontSize: 10, marginLeft: 8 }}>Lots:</span>
+              <span style={{ color: '#64748b', fontSize: 12, marginLeft: 8 }}>Lots:</span>
               {[...p.lots].map((l, i) => <span key={i} style={DS.tag('#f59e0b')}>{l}</span>)}
             </div>
             {relatedDefects.length > 0 && (
               <>
-                <h4 style={{ color: '#94a3b8', fontSize: 11, margin: '8px 0 6px 0' }}>🔍 อาการเสียที่พบ ({typeLabel})</h4>
+                <h4 style={{ color: '#94a3b8', fontSize: 13, margin: '8px 0 6px 0' }}>🔍 อาการเสียที่พบ ({typeLabel})</h4>
                 {relatedDefects.map((df, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid #1e293b' }}>
                     <span style={DS.tag(color)}>{df.defect_code || '—'}</span>
-                    <span style={{ color: '#e2e8f0', fontSize: 11, flex: 1 }}>{df.defect_name || '—'}</span>
-                    <span style={{ color, fontWeight: 700, fontSize: 12 }}>{Number(df.total_qty).toLocaleString()}</span>
+                    <span style={{ color: '#e2e8f0', fontSize: 13, flex: 1 }}>{df.defect_name || '—'}</span>
+                    <span style={{ color, fontWeight: 700, fontSize: 14 }}>{Number(df.total_qty).toLocaleString()}</span>
                   </div>
                 ))}
               </>
@@ -206,19 +206,19 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
                 { label: 'หมวดหมู่', value: df.category || '—', c: catColor },
               ].map((item, i) => (
                 <div key={i} style={{ padding: 10, background: '#1e293b', borderRadius: 6, textAlign: 'center', borderLeft: `3px solid ${item.c}` }}>
-                  <div style={{ color: '#64748b', fontSize: 9 }}>{item.label}</div>
-                  <div style={{ color: item.c, fontSize: 15, fontWeight: 700 }}>{item.value}</div>
+                  <div style={{ color: '#64748b', fontSize: 11 }}>{item.label}</div>
+                  <div style={{ color: item.c, fontSize: 17, fontWeight: 700 }}>{item.value}</div>
                 </div>
               ))}
             </div>
             {relatedParts.length > 0 && (
               <>
-                <h4 style={{ color: '#94a3b8', fontSize: 11, margin: '8px 0 6px 0' }}>📦 Part ที่พบ {typeLabel}</h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <h4 style={{ color: '#94a3b8', fontSize: 13, margin: '8px 0 6px 0' }}>📦 Part ที่พบ {typeLabel}</h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #334155' }}>
                       {['Part No.', 'Name', 'Line', 'ผลิต', isRework ? 'Rework' : 'Scrap', '%'].map(h =>
-                        <th key={h} style={{ padding: 4, color: '#64748b', textAlign: 'left', fontSize: 10 }}>{h}</th>
+                        <th key={h} style={{ padding: 4, color: '#64748b', textAlign: 'left', fontSize: 12 }}>{h}</th>
                       )}
                     </tr>
                   </thead>
@@ -229,7 +229,7 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
                           <td style={{ padding: 4, fontWeight: 600, color: '#3b82f6' }}>{p.part_number}</td>
-                          <td style={{ padding: 4, color: '#e2e8f0', fontSize: 10, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.part_name || '—'}</td>
+                          <td style={{ padding: 4, color: '#e2e8f0', fontSize: 12, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.part_name || '—'}</td>
                           <td style={{ padding: 4 }}><span style={DS.tag('#8b5cf6')}>{p.line_no}</span></td>
                           <td style={{ padding: 4, color: '#94a3b8' }}>{tot.toLocaleString()}</td>
                           <td style={{ padding: 4, fontWeight: 700, color }}>{qty.toLocaleString()}</td>
@@ -302,16 +302,16 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
       {/* ── สรุปแยก Line ─────────────────────────────────────── */}
       <div style={{ background: '#0f172a', borderRadius: 8, border: '1px solid #1e293b', padding: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h4 style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h4 style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             🏭 สรุปของเสียแยกตาม Line
-            {lineMonth && <span style={{ fontSize: 10, fontWeight: 400, color: '#3b82f6' }}>📆 {lineMonthLabel}</span>}
-            {lineLoading && <span style={{ fontSize: 10, color: '#f59e0b' }}>⏳ กำลังโหลด...</span>}
+            {lineMonth && <span style={{ fontSize: 12, fontWeight: 400, color: '#3b82f6' }}>📆 {lineMonthLabel}</span>}
+            {lineLoading && <span style={{ fontSize: 12, color: '#f59e0b' }}>⏳ กำลังโหลด...</span>}
           </h4>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <select
               value={lineMonth}
               onChange={e => setLineMonth(e.target.value)}
-              style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 11, cursor: 'pointer' }}
+              style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 13, cursor: 'pointer' }}
             >
               <option value="">📊 ตาม Dashboard</option>
               {monthOptions.map(m => (
@@ -322,11 +322,11 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
         </div>
 
         {lineList.length > 0 ? (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #334155' }}>
                 {['Line', '📦 ยอดผลิต', '🔧 เสียซ่อม', '% ซ่อม', '🗑️ เสียทิ้ง', '% ทิ้ง', 'รวมเสีย', '% เสียรวม'].map(h =>
-                  <th key={h} style={{ padding: '6px 8px', color: '#64748b', textAlign: h === 'Line' ? 'left' : 'right', fontSize: 10 }}>{h}</th>
+                  <th key={h} style={{ padding: '6px 8px', color: '#64748b', textAlign: h === 'Line' ? 'left' : 'right', fontSize: 12 }}>{h}</th>
                 )}
               </tr>
             </thead>
@@ -341,9 +341,9 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
                     <td style={{ padding: '6px 8px' }}><span style={DS.tag('#8b5cf6')}>{l.line}</span></td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', color: '#e2e8f0', fontWeight: 600 }}>{l.total.toLocaleString()}</td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>{l.rework.toLocaleString()}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right', color: parseFloat(rwPct) > 0.4 ? '#ef4444' : '#f59e0b', fontSize: 10 }}>{rwPct}%</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right', color: parseFloat(rwPct) > 0.4 ? '#ef4444' : '#f59e0b', fontSize: 12 }}>{rwPct}%</td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', color: '#ef4444', fontWeight: 700 }}>{l.scrap.toLocaleString()}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right', color: parseFloat(scPct) > 0.3 ? '#ef4444' : '#f59e0b', fontSize: 10 }}>{scPct}%</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right', color: parseFloat(scPct) > 0.3 ? '#ef4444' : '#f59e0b', fontSize: 12 }}>{scPct}%</td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', color: '#e2e8f0', fontWeight: 700 }}>{totalDefect.toLocaleString()}</td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700,
                       color: parseFloat(totalPct) > 0.5 ? '#ef4444' : parseFloat(totalPct) > 0.3 ? '#f59e0b' : '#10b981' }}>{totalPct}%</td>
@@ -365,7 +365,7 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
             </tfoot>
           </table>
         ) : (
-          <div style={{ color: '#475569', fontSize: 12, padding: 20, textAlign: 'center' }}>
+          <div style={{ color: '#475569', fontSize: 14, padding: 20, textAlign: 'center' }}>
             {lineLoading ? '⏳ กำลังโหลดข้อมูล...' : 'ไม่มีข้อมูลของเสียในช่วงที่เลือก'}
           </div>
         )}
@@ -375,9 +375,9 @@ const TopChartsSection = ({ detail, defects, lineSummary = [] }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {charts.map(chart => (
           <div key={chart.id} style={{ background: '#0f172a', borderRadius: 8, border: '1px solid #1e293b', padding: 12 }}>
-            <h4 style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h4 style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
               {chart.title}
-              <span style={{ ...DS.tag(chart.color), fontSize: 9 }}>{chart.data.reduce((s, d) => s + d.value, 0).toLocaleString()} ชิ้น</span>
+              <span style={{ ...DS.tag(chart.color), fontSize: 11 }}>{chart.data.reduce((s, d) => s + d.value, 0).toLocaleString()} ชิ้น</span>
             </h4>
             <HBarChart
               data={chart.data}
@@ -441,7 +441,7 @@ const KPIOverviewCards = ({
               background: ratio > 100 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : `linear-gradient(90deg, ${status.color}, ${status.color}cc)` }}></div>
           {ratio > 100 && <div className="kpi-card__progress-over" style={{ width: `${Math.min(ratio - 100, 50)}%` }}></div>}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, color: isSelected ? status.color : '#475569' }}>
+        <div style={{ textAlign: 'center', marginTop: 6, fontSize: 12, color: isSelected ? status.color : '#475569' }}>
           {isSelected ? '▲ คลิกเพื่อปิด' : '👆 คลิกดูรายละเอียด'}
         </div>
       </div>
@@ -484,7 +484,7 @@ const KPIOverviewCards = ({
               { label: 'Target', value: `< ${selectedCard.config.target}%`, c: '#10b981' },
             ].map((item, i) => (
               <div key={i} style={{ padding: 10, background: '#1e293b', borderRadius: 6, textAlign: 'center', borderLeft: `3px solid ${item.c}` }}>
-                <div style={{ color: '#64748b', fontSize: 10 }}>{item.label}</div>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{item.label}</div>
                 <div style={{ color: item.c, fontSize: item.small ? 11 : 16, fontWeight: 700 }}>
                   {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
                 </div>
@@ -495,15 +495,15 @@ const KPIOverviewCards = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* By Part */}
             <div>
-              <h4 style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 8px 0' }}>📊 แยกตาม Part</h4>
+              <h4 style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 8px 0' }}>📊 แยกตาม Part</h4>
               {filteredDetail.filter(d => Number(d[dataKey]) > 0).length === 0 ? (
-                <div style={{ color: '#475569', fontSize: 12, padding: 16, textAlign: 'center' }}>ไม่มีข้อมูล</div>
+                <div style={{ color: '#475569', fontSize: 14, padding: 16, textAlign: 'center' }}>ไม่มีข้อมูล</div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #334155' }}>
                       {['Part No.', 'Name', 'Lot', 'Line', 'ผลิต', isRework ? 'Rework' : 'Scrap', '%'].map(h =>
-                        <th key={h} style={{ padding: '5px', color: '#64748b', textAlign: 'left', fontSize: 10 }}>{h}</th>
+                        <th key={h} style={{ padding: '5px', color: '#64748b', textAlign: 'left', fontSize: 12 }}>{h}</th>
                       )}
                     </tr>
                   </thead>
@@ -512,7 +512,7 @@ const KPIOverviewCards = ({
                       <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
                         <td style={{ padding: '5px', fontWeight: 600, color: '#3b82f6' }}>{d.part_number}</td>
                         <td style={{ padding: '5px', color: '#e2e8f0', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.part_name || '—'}</td>
-                        <td style={{ padding: '5px', color: '#f59e0b', fontSize: 10 }}>{d.lot_number || '—'}</td>
+                        <td style={{ padding: '5px', color: '#f59e0b', fontSize: 12 }}>{d.lot_number || '—'}</td>
                         <td style={{ padding: '5px' }}><span style={DS.tag('#3b82f6')}>{d.line_no}</span></td>
                         <td style={{ padding: '5px', color: '#94a3b8' }}>{Number(d.total_produced).toLocaleString()}</td>
                         <td style={{ padding: '5px', fontWeight: 700, color }}>{Number(d[dataKey]).toLocaleString()}</td>
@@ -525,17 +525,17 @@ const KPIOverviewCards = ({
             </div>
             {/* By Defect Code */}
             <div>
-              <h4 style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 8px 0' }}>🔍 Defect Codes</h4>
+              <h4 style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 8px 0' }}>🔍 Defect Codes</h4>
               {filteredDefects.length === 0 ? (
-                <div style={{ color: '#475569', fontSize: 12, padding: 16, textAlign: 'center' }}>ไม่มีข้อมูล</div>
+                <div style={{ color: '#475569', fontSize: 14, padding: 16, textAlign: 'center' }}>ไม่มีข้อมูล</div>
               ) : filteredDefects.map((d, i) => {
                 const catColor = d.category === 'process' ? '#f59e0b' : d.category === 'dimensional' ? '#3b82f6' : '#8b5cf6';
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid #1e293b' }}>
                     <span style={DS.tag(catColor)}>{d.category || '—'}</span>
-                    <span style={{ color: '#e2e8f0', fontSize: 11, flex: 1 }}>{d.defect_code} {d.defect_name}</span>
-                    <span style={{ color, fontWeight: 700, fontSize: 12 }}>{Number(d.total_qty).toLocaleString()}</span>
-                    <span style={{ color: '#64748b', fontSize: 9 }}>({d.count}x)</span>
+                    <span style={{ color: '#e2e8f0', fontSize: 13, flex: 1 }}>{d.defect_code} {d.defect_name}</span>
+                    <span style={{ color, fontWeight: 700, fontSize: 14 }}>{Number(d.total_qty).toLocaleString()}</span>
+                    <span style={{ color: '#64748b', fontSize: 11 }}>({d.count}x)</span>
                   </div>
                 );
               })}
@@ -567,14 +567,14 @@ const KPIOverviewCards = ({
               { label: 'Target', value: `< ${selectedCard.config.target}`, c: '#10b981' },
             ].map((item, i) => (
               <div key={i} style={{ padding: 12, background: '#1e293b', borderRadius: 6, textAlign: 'center', borderLeft: `3px solid ${item.c}` }}>
-                <div style={{ color: '#64748b', fontSize: 10 }}>{item.label}</div>
-                <div style={{ color: item.c, fontSize: 18, fontWeight: 700 }}>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{item.label}</div>
+                <div style={{ color: item.c, fontSize: 20, fontWeight: 700 }}>
                   {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
                 </div>
               </div>
             ))}
           </div>
-          <div style={{ color: '#475569', fontSize: 11, textAlign: 'center', marginTop: 12 }}>
+          <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', marginTop: 12 }}>
             💡 ดูรายละเอียด Claim ทั้งหมดที่ tab 📮 Claim
           </div>
         </div>
@@ -587,8 +587,8 @@ const KPIOverviewCards = ({
       {/* Period Label */}
       {periodLabel && (
         <div style={{ padding: '8px 16px', marginBottom: 8, background: '#1e293b', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 16 }}>📆</span>
-          <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700 }}>{periodLabel}</span>
+          <span style={{ fontSize: 18 }}>📆</span>
+          <span style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 700 }}>{periodLabel}</span>
         </div>
       )}
 
@@ -618,7 +618,7 @@ const KPIOverviewCards = ({
       </div>
 
       {/* Data Source Info */}
-      <div style={{ padding: '6px 16px', background: '#0f172a', borderRadius: 6, marginBottom: 12, display: 'flex', gap: 16, fontSize: 10, color: '#64748b' }}>
+      <div style={{ padding: '6px 16px', background: '#0f172a', borderRadius: 6, marginBottom: 12, display: 'flex', gap: 16, fontSize: 12, color: '#64748b' }}>
         <span>📦 ยอดผลิต: <strong style={{ color: '#3b82f6' }}>Production Log (ฝ่ายผลิต)</strong></span>
         <span>🔍 ของเสีย: <strong style={{ color: '#f59e0b' }}>F07 / Data Entry (QC)</strong></span>
         <span>📐 % เสียซ่อม = จำนวนเสียซ่อม ÷ ยอดผลิต × 100</span>

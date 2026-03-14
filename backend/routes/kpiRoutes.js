@@ -98,4 +98,11 @@ router.get('/production-log',               prodLog.getLogs);
 router.get('/production-log/lookup',        prodLog.lookupByPartLot);
 router.delete('/production-log/:id',        prodLog.deleteLog);
 
+// ─── Monthly KPI Summary (สรุปรายเดือน) ✅ NEW ───────────
+const monthly = require('../controllers/monthlySummaryController');
+router.post('/monthly-summary/generate',    monthly.generateSummary);
+router.post('/monthly-summary/auto-close',  monthly.autoClose);
+router.get('/monthly-summary',              monthly.listSummaries);
+router.get('/monthly-summary/:year/:month', monthly.getSummary);
+
 module.exports = router;
